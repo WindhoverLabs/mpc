@@ -260,6 +260,9 @@ void MPC::InitData()
 	HeadingResetCounter = 0;
 	TakeoffVelLimit = 0.0f;
 
+	RefTimestamp = 0;
+	RefAlt = 0.0f;
+
 	Position.Zero();
 	PositionSetpoint.Zero();
 	Velocity.Zero();
@@ -288,6 +291,8 @@ void MPC::InitData()
 	HoldOffboardXY = false;
 	HoldOffboardZ = false;
 	LimitVelXY = false;
+
+	GearStateInitialized = false;
 }
 
 
@@ -375,7 +380,7 @@ int32 MPC::RcvSchPipeMsg(int32 iBlocking)
         switch (MsgId)
         {
             case MPC_WAKEUP_MID:
-            	RunController();
+            	Execute();
                 break;
 
             case MPC_SEND_HK_MID:
@@ -1014,7 +1019,7 @@ void MPC::ProcessPositionSetpointTripletMsg(void)
 }
 
 
-void MPC::RunController(void)
+void MPC::Execute(void)
 {
 	static uint64 t_prev = 0;
 	bool was_armed = false;
@@ -1057,9 +1062,9 @@ void MPC::RunController(void)
 
 	was_landed = VehicleLandDetectedMsg.Landed;
 
-	//update_ref();
+	UpdateRef();
 
-	//update_velocity_derivative();
+	UpdateVelocityDerivative();
 
 	/* Reset the horizontal and vertical position hold flags for non-manual modes
 	 * or if position / altitude is not controlled. */
@@ -1079,7 +1084,7 @@ void MPC::RunController(void)
 			VehicleControlModeMsg.ControlVelocityEnabled ||
 			VehicleControlModeMsg.ControlAccelerationEnabled)
 	{
-		//do_control(dt);
+		DoControl(dt);
 
 		/* Fill local position, velocity and thrust setpoint */
 		VehicleLocalPositionSetpointMsg.Timestamp = PX4LIB_GetPX4TimeUs();
@@ -1112,7 +1117,7 @@ void MPC::RunController(void)
 	/* Generate attitude setpoint from manual controls */
 	if (VehicleControlModeMsg.ControlManualEnabled && VehicleControlModeMsg.ControlAttitudeEnabled)
 	{
-		//generate_attitude_setpoint(dt);
+		GenerateAttitudeSetpoint(dt);
 
 	}
 	else
@@ -1145,6 +1150,264 @@ void MPC::RunController(void)
 	ResetIntZManual = VehicleControlModeMsg.Armed && VehicleControlModeMsg.ControlManualEnabled
 			      && !VehicleControlModeMsg.ControlClimbRateEnabled;
 
+}
+
+
+
+void MPC::UpdateRef(void)
+{
+	if (VehicleLocalPositionMsg.RefTimestamp != RefTimestamp)
+	{
+		double LatitudeSetpoint;
+		double LongitudeSetpoint;
+		float AltitudeSetpoint = 0.0f;
+
+		if(RefTimestamp != 0)
+		{
+			/* Calculate current position setpoint in global frame. */
+			/* TODO */
+			//map_projection_reproject(&_ref_pos, _pos_sp(0), _pos_sp(1), &lat_sp, &lon_sp);
+
+			/* The altitude setpoint is the reference altitude (Z up) plus the (Z down)
+			 * NED setpoint, multiplied out to minus*/
+			AltitudeSetpoint = RefAlt - PositionSetpoint[2];
+		}
+
+		/* Update local projection reference including altitude. */
+		/* TODO */
+		//map_projection_init(&_ref_pos, _local_pos.ref_lat, _local_pos.ref_lon);
+		RefAlt = VehicleLocalPositionMsg.RefAlt;
+
+		if (RefTimestamp != 0)
+		{
+			/* Reproject position setpoint to new reference this effectively
+			 * adjusts the position setpoint to keep the vehicle in its
+			 * current local position. It would only change its global
+			 * position on the next setpoint update. */
+			/* TODO */
+			//map_projection_project(&_ref_pos, lat_sp, lon_sp, &_pos_sp.data[0], &_pos_sp.data[1]);
+			PositionSetpoint[2] = -(AltitudeSetpoint - RefAlt);
+		}
+
+		RefTimestamp = VehicleLocalPositionMsg.RefTimestamp;
+	}
+}
+
+
+
+void MPC::UpdateVelocityDerivative(void)
+{
+	/* Update velocity derivative,
+	 * independent of the current flight mode
+	 */
+	if (VehicleLocalPositionMsg.Timestamp == 0)
+	{
+		return;
+	}
+
+	// TODO: this logic should be in the estimator, not the controller!
+	if (isfinite(VehicleLocalPositionMsg.X) &&
+		isfinite(VehicleLocalPositionMsg.Y) &&
+		isfinite(VehicleLocalPositionMsg.Z))
+	{
+		Position[0] = VehicleLocalPositionMsg.X;
+		Position[1] = VehicleLocalPositionMsg.Y;
+
+		if (ConfigTblPtr->ALT_MODE == 1 && VehicleLocalPositionMsg.DistBottomValid)
+		{
+			Position[2] = -VehicleLocalPositionMsg.DistBottom;
+		}
+		else
+		{
+			Position[2] = VehicleLocalPositionMsg.Z;
+		}
+	}
+
+	if (isfinite(VehicleLocalPositionMsg.VX) &&
+		isfinite(VehicleLocalPositionMsg.VY) &&
+		isfinite(VehicleLocalPositionMsg.VZ))
+	{
+		Velocity[0] = VehicleLocalPositionMsg.VX;
+		Velocity[1] = VehicleLocalPositionMsg.VY;
+
+		if (ConfigTblPtr->ALT_MODE == 1 && VehicleLocalPositionMsg.DistBottomValid)
+		{
+			Velocity[2] = -VehicleLocalPositionMsg.DistBottomRate;
+		}
+		else
+		{
+			Velocity[2] = VehicleLocalPositionMsg.VZ;
+		}
+	}
+
+	/* TODO */
+	//VelocityErrD[0] = _vel_x_deriv.update(-_vel(0));
+	//VelocityErrD[1] = _vel_y_deriv.update(-_vel(1));
+	//VelocityErrD[2] = _vel_z_deriv.update(-_vel(2));
+}
+
+
+
+void MPC::DoControl(float dt)
+{
+	VelocityFF.Zero();
+
+	/* By default, run position/altitude controller. the control_* functions
+	 * can disable this and run velocity controllers directly in this cycle */
+	RunPosControl = true;
+	RunAltControl = true;
+
+	/* If not in auto mode, we reset limit_vel_xy flag. */
+	if(VehicleControlModeMsg.ControlManualEnabled || VehicleControlModeMsg.ControlOffboardEnabled)
+	{
+		LimitVelXY = false;
+	}
+
+	if (VehicleControlModeMsg.ControlManualEnabled)
+	{
+		/* Manual control */
+		/* TODO */
+		//control_manual(dt);
+		ModeAuto = false;
+
+		/* We set tiplets to false.  This ensures that when switching to auto,
+		 * the position controller will not use the old triplets but waits
+		 * until triplets have been updated. */
+		PositionSetpointTripletMsg.Current.Valid = false;
+
+		HoldOffboardXY = false;
+		HoldOffboardZ = false;
+	}
+	else
+	{
+		/* TODO */
+		//control_non_manual(dt);
+	}
+}
+
+
+
+void MPC::GenerateAttitudeSetpoint(float dt)
+{
+	/* Reset yaw setpoint to current position if needed. */
+	if (ResetYawSetpoint)
+	{
+		ResetYawSetpoint = false;
+		VehicleAttitudeSetpointMsg.YawBody = Yaw;
+	}
+	else if (!VehicleLandDetectedMsg.Landed &&
+		   !(!VehicleControlModeMsg.ControlAltitudeEnabled && ManualControlSetpointMsg.Z < 0.1f))
+	{
+		/* Do not move yaw while sitting on the ground. */
+
+		/* We want to know the real constraint, and global overrides manual. */
+		const float yaw_rate_max = (ConfigTblPtr->MAN_Y_MAX < ConfigTblPtr->MC_YAWRATE_MAX) ? ConfigTblPtr->MAN_Y_MAX :
+				ConfigTblPtr->MC_YAWRATE_MAX;
+		const float yaw_offset_max = yaw_rate_max / ConfigTblPtr->MC_YAW_P;
+
+		VehicleAttitudeSetpointMsg.YawSpMoveRate = ManualControlSetpointMsg.R * yaw_rate_max;
+		/* TODO - Implement _wrap_pi and remove temporary stubs. */
+		float yaw_target = 0.0f;
+		float yaw_offs = 0.0f;
+		//float yaw_target = _wrap_pi(_att_sp.yaw_body + _att_sp.yaw_sp_move_rate * dt);
+		//float yaw_offs = _wrap_pi(yaw_target - _yaw);
+
+		/* If the yaw offset became too big for the system to track stop
+         * shifting it, only allow if it would make the offset smaller again. */
+		if (fabsf(yaw_offs) < yaw_offset_max ||
+		    (VehicleAttitudeSetpointMsg.YawSpMoveRate > 0 && yaw_offs < 0) ||
+		    (VehicleAttitudeSetpointMsg.YawSpMoveRate < 0 && yaw_offs > 0)) {
+
+			VehicleAttitudeSetpointMsg.YawBody = yaw_target;
+		}
+	}
+
+	/* Control throttle directly if no climb rate controller is active */
+	if (!VehicleControlModeMsg.ControlClimbRateEnabled)
+	{
+		/* TODO - Implement throttle_curve and replace stubs. */
+	    float thr_val = 0.0f;
+		//float thr_val = throttle_curve(_manual.z, _params.thr_hover);
+	    /* TODO - Implement _manual_thr_max. */
+	    //VehicleAttitudeSetpointMsg.Thrust = math::min(thr_val, _manual_thr_max.get());
+
+		/* Enforce minimum throttle if not landed */
+		if (!VehicleLandDetectedMsg.Landed)
+		{
+		    /* TODO - Implement _manual_thr_min. */
+			//VehicleAttitudeSetpointMsg.Thrust = math::max(_att_sp.thrust, _manual_thr_min.get());
+		}
+	}
+
+	/* Control roll and pitch directly if no aiding velocity controller is active. */
+	if (!VehicleControlModeMsg.ControlVelocityEnabled)
+	{
+		VehicleAttitudeSetpointMsg.RollBody = ManualControlSetpointMsg.Y * ConfigTblPtr->MAN_TILT_MAX;
+		VehicleAttitudeSetpointMsg.PitchBody = -ManualControlSetpointMsg.X * ConfigTblPtr->MAN_TILT_MAX;
+
+		/* Only if optimal recovery is not used, modify roll/pitch. */
+		if (ConfigTblPtr->VT_OPT_RECOV_EN <= 0)
+		{
+			/* Construct attitude setpoint rotation matrix. modify the setpoints for roll
+			 * and pitch such that they reflect the user's intention even if a yaw error
+			 * (yaw_sp - yaw) is present. In the presence of a yaw error constructing a rotation matrix
+			 * from the pure euler angle setpoints will lead to unexpected attitude behaviour from
+			 * the user's view as the euler angle sequence uses the  yaw setpoint and not the current
+			 * heading of the vehicle.
+			 */
+
+			/* calculate our current yaw error. */
+			/* TODO - Implement _wrap_pi and replace stub. */
+			float yaw_error = 0;
+			//float yaw_error = _wrap_pi(_att_sp.yaw_body - _yaw);
+
+			// Compute the vector obtained by rotating a z unit vector by the rotation
+			// given by the roll and pitch commands of the user
+			math::Vector3F zB = {0, 0, 1};
+			math::Matrix3F3 R_sp_roll_pitch;
+			R_sp_roll_pitch.FromEuler(VehicleAttitudeSetpointMsg.RollBody, VehicleAttitudeSetpointMsg.PitchBody, 0);
+			math::Vector3F z_roll_pitch_sp = R_sp_roll_pitch * zB;
+
+			/* Transform the vector into a new frame which is rotated around the z axis
+			 * by the current yaw error. this vector defines the desired tilt when we look
+			 * into the direction of the desired heading.
+			 */
+			math::Matrix3F3 R_yaw_correction;
+			R_yaw_correction.FromEuler(0.0f, 0.0f, -yaw_error);
+			z_roll_pitch_sp = R_yaw_correction * z_roll_pitch_sp;
+
+			// Use the formula z_roll_pitch_sp = R_tilt * [0;0;1]
+			// R_tilt is computed from_euler; only true if cos(roll) not equal zero
+			// -> valid if roll is not +-pi/2;
+			VehicleAttitudeSetpointMsg.RollBody = -asinf(z_roll_pitch_sp[1]);
+			VehicleAttitudeSetpointMsg.PitchBody = atan2f(z_roll_pitch_sp[0], z_roll_pitch_sp[2]);
+		}
+
+		/* Copy quaternion setpoint to attitude setpoint topic. */
+		math::Quaternion q_sp(VehicleAttitudeSetpointMsg.RollBody, VehicleAttitudeSetpointMsg.PitchBody, VehicleAttitudeSetpointMsg.YawBody);
+		q_sp.copyTo(VehicleAttitudeSetpointMsg.Q_D);
+		VehicleAttitudeSetpointMsg.Q_D_Valid = true;
+	}
+
+	/* Only switch the landing gear up if we are not landed and if
+	 * the user switched from gear down to gear up.
+	 * If the user had the switch in the gear up position and took off ignore it
+     * until he toggles the switch to avoid retracting the gear immediately on takeoff.
+     */
+	if (ManualControlSetpointMsg.GearSwitch == PX4_SWITCH_POS_ON && GearStateInitialized &&
+	    !VehicleLandDetectedMsg.Landed)
+	{
+		VehicleAttitudeSetpointMsg.LandingGear = 1.0f;
+
+	}
+	else if(ManualControlSetpointMsg.GearSwitch == PX4_SWITCH_POS_ON)
+	{
+		VehicleAttitudeSetpointMsg.LandingGear = -1.0f;
+		/* Switching the gear off does put it into a safe defined state. */
+		GearStateInitialized = true;
+	}
+
+	VehicleAttitudeSetpointMsg.Timestamp = PX4LIB_GetPX4TimeUs();
 }
 
 

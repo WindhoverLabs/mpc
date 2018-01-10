@@ -579,6 +579,12 @@ typedef struct
      * @group Multicopter Position Control
      */
     float TKO_RAMP_T;
+
+    float MC_YAWRATE_MAX;
+
+    float MC_YAW_P;
+
+    int32 VT_OPT_RECOV_EN;
 } MPC_ConfigTbl_t;
 
 

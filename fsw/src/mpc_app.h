@@ -159,6 +159,11 @@ public:
 	bool HoldOffboardZ;
 	bool LimitVelXY;
 
+	bool GearStateInitialized;
+
+	uint64 RefTimestamp;
+	float RefAlt;
+
     /************************************************************************/
     /** \brief Multicopter Position Control (MPC) application entry point
      **
@@ -417,7 +422,11 @@ private:
     void ProcessControlStateMsg(void);
     void ProcessVehicleLocalPositionMsg(void);
     void ProcessPositionSetpointTripletMsg(void);
-    void RunController(void);
+    void Execute(void);
+    void UpdateRef(void);
+    void UpdateVelocityDerivative(void);
+    void DoControl(float dt);
+    void GenerateAttitudeSetpoint(float dt);
 
 public:
     /************************************************************************/

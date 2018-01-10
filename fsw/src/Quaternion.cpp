@@ -91,3 +91,33 @@ Vector3F Quaternion::ToEuler(void) const
 
 	return euler;
 }
+
+
+
+Quaternion::Quaternion(float roll, float pitch, float yaw)
+{
+	double cosPhi_2 = cos(double(roll) / 2.0);
+	double sinPhi_2 = sin(double(roll) / 2.0);
+	double cosTheta_2 = cos(double(pitch) / 2.0);
+	double sinTheta_2 = sin(double(pitch) / 2.0);
+	double cosPsi_2 = cos(double(yaw) / 2.0);
+	double sinPsi_2 = sin(double(yaw) / 2.0);
+
+	/* operations executed in double to avoid loss of precision through
+	 * consecutive multiplications. Result stored as float.
+	 */
+	data[0] = static_cast<float>(cosPhi_2 * cosTheta_2 * cosPsi_2 + sinPhi_2 * sinTheta_2 * sinPsi_2);
+	data[1] = static_cast<float>(sinPhi_2 * cosTheta_2 * cosPsi_2 - cosPhi_2 * sinTheta_2 * sinPsi_2);
+	data[2] = static_cast<float>(cosPhi_2 * sinTheta_2 * cosPsi_2 + sinPhi_2 * cosTheta_2 * sinPsi_2);
+	data[3] = static_cast<float>(cosPhi_2 * cosTheta_2 * sinPsi_2 - sinPhi_2 * sinTheta_2 * cosPsi_2);
+}
+
+
+
+void Quaternion::copyTo(float (&dst)[4])
+{
+    dst[0] = data[0];
+    dst[1] = data[1];
+    dst[2] = data[2];
+    dst[3] = data[3];
+}
