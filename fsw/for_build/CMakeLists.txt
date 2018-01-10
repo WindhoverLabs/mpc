@@ -9,6 +9,16 @@ add_airliner_app_def(mpc
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_msg.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_tbldefs.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_version.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Matrix3F3.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Matrix3F3.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Matrix4F4.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Matrix4F4.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Quaternion.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Quaternion.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector3F.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector3F.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector4F.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector4F.hpp
    
     INCLUDES
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/
@@ -29,6 +39,10 @@ add_airliner_app_unit_test(mpc-ut
         ${CMAKE_CURRENT_SOURCE_DIR}/../unit_test/mpc_testrunner.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../unit_test/mpc_test_utils.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../unit_test/mpc_test_utils.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../unit_test/stubs/ut_mpc_custom_stubs.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../unit_test/stubs/ut_mpc_custom_stubs.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../unit_test/stubs/ut_mpc_custom_hooks.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../unit_test/stubs/ut_mpc_custom_hooks.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_app.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_app.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_config_utils.cpp
@@ -36,6 +50,16 @@ add_airliner_app_unit_test(mpc-ut
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_msg.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_tbldefs.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_version.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Matrix3F3.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Matrix3F3.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Matrix4F4.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Matrix4F4.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Quaternion.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Quaternion.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector3F.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector3F.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector4F.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector4F.hpp
         
     INCLUDES
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/

@@ -48,6 +48,9 @@
 #include "ut_cfe_tbl_stubs.h"
 #include "ut_cfe_fs_stubs.h"
 #include "ut_cfe_time_stubs.h"
+#include "Quaternion.hpp"
+#include "Matrix3F3.hpp"
+#include <float.h>
 
 int32 hookCalledCount = 0;
 
@@ -458,6 +461,185 @@ void Test_MPC_AppMain_Nominal_Wakeup(void)
 }
 
 
+/**
+ * Test MPC_AppMain(), Nominal - ProcessControlStateMsg
+ */
+void Test_MPC_AppMain_Nominal_ProcessControlStateMsg(void)
+{
+    MPC oMPC;
+    PX4_ControlStateMsg_t controlState = {};
+    int32 schPipe;
+
+    schPipe = Ut_CFE_SB_CreatePipe("MPC_SCH_PIPE");
+
+    CFE_SB_InitMsg (&controlState, PX4_CONTROL_STATE_MID, sizeof(controlState), TRUE);
+
+    controlState.Timestamp = 86440828023;
+    controlState.AccX = -0.236284539;
+    controlState.AccY = 0.101594232;
+    controlState.AccZ = -9.76688671;
+    controlState.VelX = 0.000539890432;
+    controlState.VelY = 0.0182482861;
+    controlState.VelZ = 0.00519393012;
+    controlState.PosX = -0.00807033759;
+    controlState.PosY = -0.000570089556;
+    controlState.PosZ = 0.0179239418;
+    controlState.Airspeed = 0;
+    controlState.VelVariance[0] = 0.0f;
+    controlState.VelVariance[1] = 0.0f;
+    controlState.VelVariance[2] = 0.0f;
+    controlState.PosVariance[0] = 0.0f;
+    controlState.PosVariance[1] = 0.0f;
+    controlState.PosVariance[2] = 0.0f;
+    controlState.Q[0] = 0.712293863;
+    controlState.Q[1] = 0.00346049992;
+    controlState.Q[2] = -0.0159233119;
+    controlState.Q[3] = 0.701692224;
+    controlState.DeltaQReset[0] = 0.999934673;
+    controlState.DeltaQReset[1] = 0.000154913403;
+    controlState.DeltaQReset[2] = -0.00022063707;
+    controlState.DeltaQReset[3] = 0.0114225745;
+    controlState.RollRate = 0.00590410549;
+    controlState.PitchRate = 0.00479567284;
+    controlState.YawRate = 0.000454715308;
+    controlState.HorzAccMag = 0.158787385;
+    controlState.RollRateBias = -0.00138732162;
+    controlState.PitchRateBias = -0.00102514029;
+    controlState.YawRateBias = -0.00102514029;
+    controlState.AirspeedValid = false;
+    controlState.QuatResetCounter = 2;
+
+    Ut_CFE_SB_AddMsgToPipe(&controlState, schPipe);
+
+    Ut_CFE_ES_SetReturnCode(UT_CFE_ES_RUNLOOP_INDEX, FALSE, 2);
+
+    /* Execute the function being tested */
+    oMPC.AppMain();
+
+    /* Verify results */
+    UtAssert_True(oMPC.HeadingResetCounter == 0,"HeadingResetCounter == 0");
+    UtAssert_DoubleCmpAbs(oMPC.Rotation[0][0], 0.0147489905, FLT_EPSILON, "oMPC.Rotation[0][0] == 0.0147489905");
+    UtAssert_DoubleCmpAbs(oMPC.Rotation[0][1], -0.999732316, FLT_EPSILON, "oMPC.Rotation[0][1] == -0.999732316");
+    UtAssert_DoubleCmpAbs(oMPC.Rotation[0][2], -0.0178277437, FLT_EPSILON, "oMPC.Rotation[0][2] == -0.0178277437");
+    UtAssert_DoubleCmpAbs(oMPC.Rotation[1][0], 0.999511898, FLT_EPSILON, "oMPC.Rotation[1][0] == 0.999511898");
+    UtAssert_DoubleCmpAbs(oMPC.Rotation[1][1], 0.0152321458, FLT_EPSILON, "oMPC.Rotation[1][1] == 0.0152321458");
+    UtAssert_DoubleCmpAbs(oMPC.Rotation[1][2], -0.0272763148, FLT_EPSILON, "oMPC.Rotation[1][2] == -0.0272763148");
+    UtAssert_DoubleCmpAbs(oMPC.Rotation[2][0], 0.0275405664, FLT_EPSILON, "oMPC.Rotation[2][0] == 0.0275405664");
+    UtAssert_DoubleCmpAbs(oMPC.Rotation[2][1], -0.0174167417, FLT_EPSILON, "oMPC.Rotation[2][1] == -0.0174167417");
+    UtAssert_DoubleCmpAbs(oMPC.Rotation[2][2], 0.999468982, FLT_EPSILON, "oMPC.Rotation[2][1] == 0.999468982");
+    UtAssert_DoubleCmpAbs(oMPC.Yaw, 1.55604124, FLT_EPSILON, "oMPC.Yaw == 1.55604124");
+}
+
+
+/**
+ * Test MPC_AppMain(), Nominal - ProcessControlStateMsg
+ */
+void Test_MPC_AppMain_Nominal_ProcessVehicleLocalPositionMsg(void)
+{
+    MPC oMPC;
+    PX4_VehicleLocalPositionMsg_t vehicleLocalPosition = {};
+    PX4_ControlStateMsg_t controlState = {};
+    int32 schPipe;
+
+    schPipe = Ut_CFE_SB_CreatePipe("MPC_SCH_PIPE");
+
+    CFE_SB_InitMsg(&vehicleLocalPosition, PX4_VEHICLE_LOCAL_POSITION_MID, sizeof(vehicleLocalPosition), TRUE);
+    CFE_SB_InitMsg(&controlState, PX4_CONTROL_STATE_MID, sizeof(controlState), TRUE);
+
+
+    vehicleLocalPosition.Timestamp = 88516625760;
+    vehicleLocalPosition.RefTimestamp = 86416035453;
+    vehicleLocalPosition.RefLat = 47.397742000000001;
+    vehicleLocalPosition.RefLon = 8.5455939000000001;
+    vehicleLocalPosition.SurfaceBottomTimestamp = 88516625760;
+    vehicleLocalPosition.X = -0.0382288173;
+    vehicleLocalPosition.Y = 0.0131685678;
+    vehicleLocalPosition.Z = 0.405019075;
+    vehicleLocalPosition.Delta_XY[0] = -0.00702110073;
+    vehicleLocalPosition.Delta_XY[1] = -0.00230869721;
+    vehicleLocalPosition.Delta_Z = 0;
+    vehicleLocalPosition.VX = -0.035448242;
+    vehicleLocalPosition.VY = 0.00551212905;
+    vehicleLocalPosition.VZ = 0.20808062;
+    vehicleLocalPosition.Delta_VXY[0] = -0.0166048259;
+    vehicleLocalPosition.Delta_VXY[1] = -0.00429295097;
+    vehicleLocalPosition.Delta_VZ = 0.0100669134;
+    vehicleLocalPosition.AX = 0;
+    vehicleLocalPosition.AY = 0;
+    vehicleLocalPosition.AZ = 0;
+    vehicleLocalPosition.Yaw = 1.51540768;
+    vehicleLocalPosition.RefAlt = 488.201019;
+    vehicleLocalPosition.DistBottom = 0.995466709;
+    vehicleLocalPosition.DistBottomRate = -0.20808062;
+    vehicleLocalPosition.EpH = 0.412961185;
+    vehicleLocalPosition.EpV = 0.23175697;
+    vehicleLocalPosition.EvH = 0.188474447;
+    vehicleLocalPosition.EvV = 0.0783097148;
+    vehicleLocalPosition.EstimatorType = 0;
+    vehicleLocalPosition.XY_Valid = true;
+    vehicleLocalPosition.Z_Valid = true;
+    vehicleLocalPosition.V_XY_Valid = true;
+    vehicleLocalPosition.V_Z_Valid = true;
+    vehicleLocalPosition.XY_ResetCounter = 1;
+    vehicleLocalPosition.Z_ResetCounter = 0;
+    vehicleLocalPosition.VXY_ResetCounter = 1;
+    vehicleLocalPosition.VZ_ResetCounter = 1;
+    vehicleLocalPosition.XY_Global = true;
+    vehicleLocalPosition.Z_Global = true;
+    vehicleLocalPosition.DistBottomValid = true;
+
+    controlState.Timestamp = 86440828023;
+    controlState.AccX = -0.236284539;
+    controlState.AccY = 0.101594232;
+    controlState.AccZ = -9.76688671;
+    controlState.VelX = 0.000539890432;
+    controlState.VelY = 0.0182482861;
+    controlState.VelZ = 0.00519393012;
+    controlState.PosX = -0.00807033759;
+    controlState.PosY = -0.000570089556;
+    controlState.PosZ = 0.0179239418;
+    controlState.Airspeed = 0;
+    controlState.VelVariance[0] = 0.0f;
+    controlState.VelVariance[1] = 0.0f;
+    controlState.VelVariance[2] = 0.0f;
+    controlState.PosVariance[0] = 0.0f;
+    controlState.PosVariance[1] = 0.0f;
+    controlState.PosVariance[2] = 0.0f;
+    controlState.Q[0] = 0.712293863;
+    controlState.Q[1] = 0.00346049992;
+    controlState.Q[2] = -0.0159233119;
+    controlState.Q[3] = 0.701692224;
+    controlState.DeltaQReset[0] = 0.999934673;
+    controlState.DeltaQReset[1] = 0.000154913403;
+    controlState.DeltaQReset[2] = -0.00022063707;
+    controlState.DeltaQReset[3] = 0.0114225745;
+    controlState.RollRate = 0.00590410549;
+    controlState.PitchRate = 0.00479567284;
+    controlState.YawRate = 0.000454715308;
+    controlState.HorzAccMag = 0.158787385;
+    controlState.RollRateBias = -0.00138732162;
+    controlState.PitchRateBias = -0.00102514029;
+    controlState.YawRateBias = -0.00102514029;
+    controlState.AirspeedValid = false;
+    controlState.QuatResetCounter = 2;
+
+    Ut_CFE_SB_AddMsgToPipe(&controlState, schPipe);
+    Ut_CFE_SB_AddMsgToPipe(&vehicleLocalPosition, schPipe);
+
+    Ut_CFE_ES_SetReturnCode(UT_CFE_ES_RUNLOOP_INDEX, FALSE, 3);
+
+    /* Execute the function being tested */
+    oMPC.AppMain();
+
+    /* Verify results */
+    UtAssert_True(oMPC.HeadingResetCounter == 0,"HeadingResetCounter == 0");
+    UtAssert_True(oMPC.XY_ResetCounter == 1, "oMPC.XZ_ResetCounter == 0");
+    UtAssert_True(oMPC.Z_ResetCounter == 0, "oMPC.Z_ResetCounter == 0");
+    UtAssert_True(oMPC.VXY_ResetCounter == 1, "oMPC.VXZ_ResetCounter == 0");
+    UtAssert_True(oMPC.VZ_ResetCounter == 1, "oMPC.VZ_ResetCounter == 0");
+}
+
+
 
 /**************************************************************************
  * Rollup Test Cases
@@ -506,6 +688,12 @@ void MPC_App_Test_AddTestCases(void)
                "Test_MPC_AppMain_Nominal_SendHK");
     UtTest_Add(Test_MPC_AppMain_Nominal_Wakeup, MPC_Test_Setup, MPC_Test_TearDown,
                "Test_MPC_AppMain_Nominal_Wakeup");
+
+    UtTest_Add(Test_MPC_AppMain_Nominal_ProcessControlStateMsg, MPC_Test_Setup, MPC_Test_TearDown,
+               "Test_MPC_AppMain_Nominal_ProcessControlStateMsg");
+
+    UtTest_Add(Test_MPC_AppMain_Nominal_ProcessVehicleLocalPositionMsg, MPC_Test_Setup, MPC_Test_TearDown,
+               "Test_MPC_AppMain_Nominal_ProcessVehicleLocalPositionMsg");
 
 }
 

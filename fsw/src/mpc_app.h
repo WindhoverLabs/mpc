@@ -55,16 +55,8 @@ extern "C" {
 #include "mpc_events.h"
 #include "mpc_tbldefs.h"
 #include "px4_msgs.h"
-#include "px4_msgs.h"
-#include "px4_msgs.h"
-#include "px4_msgs.h"
-#include "px4_msgs.h"
-#include "px4_msgs.h"
-#include "px4_msgs.h"
-#include "px4_msgs.h"
-#include "px4_msgs.h"
-#include "px4_msgs.h"
-#include "px4_msgs.h"
+#include "Matrix3F3.hpp"
+
 /************************************************************************
  ** Local Defines
  *************************************************************************/
@@ -72,18 +64,6 @@ extern "C" {
 /************************************************************************
  ** Local Structure Definitions
  *************************************************************************/
-typedef struct
-{
-    PX4_ControlStateMsg_t ControlStateMsg;
-    PX4_ManualControlSetpointMsg_t ManualControlSetpointMsg;
-    PX4_HomePositionMsg_t HomePositionMsg;
-    PX4_VehicleControlModeMsg_t VehicleControlModeMsg;
-    PX4_PositionSetpointTripletMsg_t PositionSetpointTripletMsg;
-    PX4_VehicleStatusMsg_t VehicleStatusMsg;
-    PX4_VehicleLandDetectedMsg_t VehicleLandDetectedMsg;
-    PX4_VehicleLocalPositionMsg_t VehicleLocalPositionMsg;
-} MPC_CurrentValueTable_t;
-
 
 /**
  **  \brief MPC Application Class
@@ -113,15 +93,72 @@ public:
     /** \brief Config Table Pointer */
     MPC_ConfigTbl_t* ConfigTblPtr;
 
+    /* Output Messages */
+    /** \brief Housekeeping Telemetry for downlink */
+    MPC_HkTlm_t HkTlm;
     /** \brief Output Data published at the end of cycle */
     PX4_VehicleAttitudeSetpointMsg_t VehicleAttitudeSetpointMsg;
     //PX4_VehicleLocalVelocitySetpointMsg_t VehicleLocalVelocitySetpointMsg;
+    PX4_VehicleLocalPositionSetpointMsg_t VehicleLocalPositionSetpointMsg;
     PX4_VehicleGlobalVelocitySetpointMsg_t VehicleGlobalVelocitySetpointMsg;
 
-    /** \brief Housekeeping Telemetry for downlink */
-    MPC_HkTlm_t HkTlm;
-    /** \brief Current Value Table */
-    MPC_CurrentValueTable_t CVT;
+    /* Input Messages */
+    PX4_ControlStateMsg_t ControlStateMsg;
+    PX4_ManualControlSetpointMsg_t ManualControlSetpointMsg;
+    PX4_HomePositionMsg_t HomePositionMsg;
+    PX4_VehicleControlModeMsg_t VehicleControlModeMsg;
+    PX4_PositionSetpointTripletMsg_t PositionSetpointTripletMsg;
+    PX4_VehicleStatusMsg_t VehicleStatusMsg;
+    PX4_VehicleLandDetectedMsg_t VehicleLandDetectedMsg;
+    PX4_VehicleLocalPositionMsg_t VehicleLocalPositionMsg;
+
+	math::Matrix3F3 Rotation; /**< rotation matrix from attitude quaternions */
+	float Yaw;				  /**< yaw angle (euler) */
+	float YawTakeoff;	      /**< home yaw angle present when vehicle was taking off (euler) */
+	bool  InLanding;	      /**< the vehicle is in the landing descent */
+	bool  LndReachedGround;   /**< controller assumes the vehicle has reached the ground after landing */
+	float VelZLp;
+	float AccZLp;
+	float VelMaxXY;           /**< equal to vel_max except in auto mode when close to target */
+	bool  InTakeoff;	      /**< flag for smooth velocity setpoint takeoff ramp */
+	float TakeoffVelLimit;    /**< velocity limit value which gets ramped up */
+
+	uint8 Z_ResetCounter;
+	uint8 XY_ResetCounter;
+	uint8 VZ_ResetCounter;
+	uint8 VXY_ResetCounter;
+	uint8 HeadingResetCounter;
+
+	math::Vector3F TrustInt;
+
+	math::Vector3F Position;
+	math::Vector3F PositionSetpoint;
+	math::Vector3F Velocity;
+	math::Vector3F VelocitySetpoint;
+	math::Vector3F VelocityPrevious;			/**< velocity on previous step */
+	math::Vector3F VelocityFF;
+	math::Vector3F VelocitySetpointPrevious;
+	math::Vector3F VelocityErrD;		     /**< derivative of current velocity */
+	math::Vector3F CurrentPositionSetpoint;  /**< current setpoint of the triplets */
+
+	bool ResetPositionSetpoint;
+	bool ResetAltitudeSetpoint;
+	bool DoResetAltPos;
+	bool ModeAuto;
+	bool PositionHoldEngaged;
+	bool AltitudeHoldEngaged;
+	bool RunPosControl;
+	bool RunAltControl;
+
+	bool ResetIntZ;
+	bool ResetIntXY;
+	bool ResetIntZManual;
+	bool ResetYawSetpoint;
+
+	bool HoldOffboardXY;
+	bool HoldOffboardZ;
+	bool LimitVelXY;
+
     /************************************************************************/
     /** \brief Multicopter Position Control (MPC) application entry point
      **
@@ -337,6 +374,8 @@ public:
      *************************************************************************/
     boolean VerifyCmdLength(CFE_SB_Msg_t* MsgPtr, uint16 usExpectedLen);
 
+    void SendVehicleLocalPositionSetpointMsg(void);
+
 private:
     /************************************************************************/
     /** \brief Initialize the MPC configuration tables.
@@ -374,6 +413,11 @@ private:
     **
     *************************************************************************/
     int32  AcquireConfigPointers(void);
+
+    void ProcessControlStateMsg(void);
+    void ProcessVehicleLocalPositionMsg(void);
+    void ProcessPositionSetpointTripletMsg(void);
+    void RunController(void);
 
 public:
     /************************************************************************/
