@@ -13,6 +13,7 @@
 #include <float.h>
 #include <math.h>
 #include "lib/px4lib.h"
+#include "geo/geo.h"
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -242,6 +243,8 @@ void MPC::InitData()
 	AccZLp = 0;
 	VelMaxXY = 0.0f;
 	HeadingResetCounter = 0;
+
+	RefPos = {};
 
 	memset(&ControlStateMsg, 0, sizeof(ControlStateMsg));
 	memset(&ManualControlSetpointMsg, 0, sizeof(ManualControlSetpointMsg));
@@ -1029,9 +1032,6 @@ void MPC::Execute(void)
 	float dt = t_prev != 0 ? (t - t_prev) / 1e6f : 0.004f;
 	t_prev = t;
 
-	/* set dt for control blocks */
-	//setDt(dt);
-
 	/* Set default max velocity in xy to vel_max */
 	VelMaxXY = ConfigTblPtr->XY_VEL_MAX;
 
@@ -1064,7 +1064,7 @@ void MPC::Execute(void)
 
 	UpdateRef();
 
-	UpdateVelocityDerivative();
+	UpdateVelocityDerivative(dt);
 
 	/* Reset the horizontal and vertical position hold flags for non-manual modes
 	 * or if position / altitude is not controlled. */
@@ -1161,12 +1161,12 @@ void MPC::UpdateRef(void)
 		double LatitudeSetpoint;
 		double LongitudeSetpoint;
 		float AltitudeSetpoint = 0.0f;
+		uint64 currentTime;
 
 		if(RefTimestamp != 0)
 		{
 			/* Calculate current position setpoint in global frame. */
-			/* TODO */
-			//map_projection_reproject(&_ref_pos, _pos_sp(0), _pos_sp(1), &lat_sp, &lon_sp);
+			map_projection_reproject(&RefPos, PositionSetpoint[0], PositionSetpoint[1], &LatitudeSetpoint, &LongitudeSetpoint);
 
 			/* The altitude setpoint is the reference altitude (Z up) plus the (Z down)
 			 * NED setpoint, multiplied out to minus*/
@@ -1174,8 +1174,8 @@ void MPC::UpdateRef(void)
 		}
 
 		/* Update local projection reference including altitude. */
-		/* TODO */
-		//map_projection_init(&_ref_pos, _local_pos.ref_lat, _local_pos.ref_lon);
+		currentTime = PX4LIB_GetPX4TimeUs();
+		map_projection_init(&RefPos, VehicleLocalPositionMsg.RefLat, VehicleLocalPositionMsg.RefLon, currentTime);
 		RefAlt = VehicleLocalPositionMsg.RefAlt;
 
 		if (RefTimestamp != 0)
@@ -1184,8 +1184,7 @@ void MPC::UpdateRef(void)
 			 * adjusts the position setpoint to keep the vehicle in its
 			 * current local position. It would only change its global
 			 * position on the next setpoint update. */
-			/* TODO */
-			//map_projection_project(&_ref_pos, lat_sp, lon_sp, &_pos_sp.data[0], &_pos_sp.data[1]);
+			map_projection_project(&RefPos, LatitudeSetpoint, LongitudeSetpoint, &PositionSetpoint[0], &PositionSetpoint[1]);
 			PositionSetpoint[2] = -(AltitudeSetpoint - RefAlt);
 		}
 
@@ -1195,7 +1194,7 @@ void MPC::UpdateRef(void)
 
 
 
-void MPC::UpdateVelocityDerivative(void)
+void MPC::UpdateVelocityDerivative(float dt)
 {
 	/* Update velocity derivative,
 	 * independent of the current flight mode
@@ -1240,10 +1239,9 @@ void MPC::UpdateVelocityDerivative(void)
 		}
 	}
 
-	/* TODO */
-	//VelocityErrD[0] = _vel_x_deriv.update(-_vel(0));
-	//VelocityErrD[1] = _vel_y_deriv.update(-_vel(1));
-	//VelocityErrD[2] = _vel_z_deriv.update(-_vel(2));
+	VelocityErrD[0] = VelXDeriv.Update(-Velocity[0], dt, ConfigTblPtr->VELD_LP);
+	VelocityErrD[1] = VelYDeriv.Update(-Velocity[1], dt, ConfigTblPtr->VELD_LP);
+	VelocityErrD[2] = VelZDeriv.Update(-Velocity[2], dt, ConfigTblPtr->VELD_LP);
 }
 
 
@@ -1307,17 +1305,17 @@ void MPC::GenerateAttitudeSetpoint(float dt)
 
 		VehicleAttitudeSetpointMsg.YawSpMoveRate = ManualControlSetpointMsg.R * yaw_rate_max;
 		/* TODO - Implement _wrap_pi and remove temporary stubs. */
-		float yaw_target = 0.0f;
-		float yaw_offs = 0.0f;
-		//float yaw_target = _wrap_pi(_att_sp.yaw_body + _att_sp.yaw_sp_move_rate * dt);
-		//float yaw_offs = _wrap_pi(yaw_target - _yaw);
+		//float yaw_target = 0.0f;
+		//float yaw_offs = 0.0f;
+		float yaw_target = _wrap_pi(VehicleAttitudeSetpointMsg.YawBody + VehicleAttitudeSetpointMsg.YawSpMoveRate * dt);
+		float yaw_offs = _wrap_pi(yaw_target - Yaw);
 
 		/* If the yaw offset became too big for the system to track stop
          * shifting it, only allow if it would make the offset smaller again. */
 		if (fabsf(yaw_offs) < yaw_offset_max ||
 		    (VehicleAttitudeSetpointMsg.YawSpMoveRate > 0 && yaw_offs < 0) ||
-		    (VehicleAttitudeSetpointMsg.YawSpMoveRate < 0 && yaw_offs > 0)) {
-
+		    (VehicleAttitudeSetpointMsg.YawSpMoveRate < 0 && yaw_offs > 0))
+		{
 			VehicleAttitudeSetpointMsg.YawBody = yaw_target;
 		}
 	}
@@ -1356,10 +1354,8 @@ void MPC::GenerateAttitudeSetpoint(float dt)
 			 * heading of the vehicle.
 			 */
 
-			/* calculate our current yaw error. */
-			/* TODO - Implement _wrap_pi and replace stub. */
-			float yaw_error = 0;
-			//float yaw_error = _wrap_pi(_att_sp.yaw_body - _yaw);
+			/* Calculate our current yaw error. */
+			float yaw_error = _wrap_pi(VehicleAttitudeSetpointMsg.YawBody - Yaw);
 
 			// Compute the vector obtained by rotating a z unit vector by the rotation
 			// given by the roll and pitch commands of the user

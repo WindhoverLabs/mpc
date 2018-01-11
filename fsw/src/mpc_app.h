@@ -56,6 +56,8 @@ extern "C" {
 #include "mpc_tbldefs.h"
 #include "px4_msgs.h"
 #include "Matrix3F3.hpp"
+#include "geo/geo.h"
+#include "Derivative.hpp"
 
 /************************************************************************
  ** Local Defines
@@ -162,7 +164,12 @@ public:
 	bool GearStateInitialized;
 
 	uint64 RefTimestamp;
+	struct map_projection_reference_s RefPos;
 	float RefAlt;
+
+	Derivative VelXDeriv;
+	Derivative VelYDeriv;
+	Derivative VelZDeriv;
 
     /************************************************************************/
     /** \brief Multicopter Position Control (MPC) application entry point
@@ -424,7 +431,7 @@ private:
     void ProcessPositionSetpointTripletMsg(void);
     void Execute(void);
     void UpdateRef(void);
-    void UpdateVelocityDerivative(void);
+    void UpdateVelocityDerivative(float dt);
     void DoControl(float dt);
     void GenerateAttitudeSetpoint(float dt);
 

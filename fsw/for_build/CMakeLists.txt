@@ -19,6 +19,14 @@ add_airliner_app_def(mpc
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector3F.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector4F.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector4F.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/geo/geo.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/geo/geo.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/geo_lookup/geo_mag_declination.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/geo_lookup/geo_mag_declination.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Derivative.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Derivative.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/LowPassFilter2p.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/LowPassFilter2p.h
    
     INCLUDES
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/
@@ -60,7 +68,15 @@ add_airliner_app_unit_test(mpc-ut
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector3F.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector4F.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector4F.hpp
-        
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/geo/geo.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/geo/geo.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/geo_lookup/geo_mag_declination.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/geo_lookup/geo_mag_declination.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Derivative.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Derivative.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/LowPassFilter2p.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/LowPassFilter2p.h
+                
     INCLUDES
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/
         ${CMAKE_CURRENT_SOURCE_DIR}/../unit_test/
