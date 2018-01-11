@@ -27,6 +27,8 @@ add_airliner_app_def(mpc
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Derivative.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/LowPassFilter2p.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/LowPassFilter2p.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/mathlib/math/Expo.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/mathlib/math/Expo.hpp
    
     INCLUDES
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/
@@ -64,6 +66,8 @@ add_airliner_app_unit_test(mpc-ut
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Matrix4F4.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Quaternion.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Quaternion.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector2F.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector2F.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector3F.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector3F.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector4F.cpp
@@ -76,6 +80,8 @@ add_airliner_app_unit_test(mpc-ut
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Derivative.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/LowPassFilter2p.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/LowPassFilter2p.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/mathlib/math/Expo.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/mathlib/math/Expo.hpp
                 
     INCLUDES
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/

@@ -143,6 +143,8 @@ public:
 	math::Vector3F VelocityErrD;		     /**< derivative of current velocity */
 	math::Vector3F CurrentPositionSetpoint;  /**< current setpoint of the triplets */
 
+	math::Matrix3F3 RSetpoint;
+
 	bool ResetPositionSetpoint;
 	bool ResetAltitudeSetpoint;
 	bool DoResetAltPos;
@@ -388,6 +390,7 @@ public:
 
     void SendVehicleLocalPositionSetpointMsg(void);
 
+
 private:
     /************************************************************************/
     /** \brief Initialize the MPC configuration tables.
@@ -434,6 +437,12 @@ private:
     void UpdateVelocityDerivative(float dt);
     void DoControl(float dt);
     void GenerateAttitudeSetpoint(float dt);
+    void ControlManual(float dt);
+    void ControlNonManual(float dt);
+    float ThrottleCurve(float ctl, float ctr);
+    void ResetAltSetpoint(void);
+    void ResetPosSetpoint(void);
+    void ControlPosition(float dt);
 
 public:
     /************************************************************************/

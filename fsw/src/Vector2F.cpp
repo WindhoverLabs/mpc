@@ -1,26 +1,26 @@
-#include "Vector3F.hpp"
+#include "Vector2F.hpp"
 #include <math.h>
 
 using namespace math;
 
-Vector3F::Vector3F(float X, float Y, float Z) :
-    data{X,Y,Z},
+Vector2F::Vector2F(float X, float Y) :
+    data{X,Y},
 	nan(NAN)
 {
 };
 
 
-Vector3F::Vector3F()
+Vector2F::Vector2F()
 {
 };
 
 
-Vector3F::~Vector3F()
+Vector2F::~Vector2F()
 {
 };
 
 
-float& Vector3F::operator [] (uint32 i)
+float& Vector2F::operator [] (uint32 i)
 {
 	if(i < SIZE)
 	{
@@ -31,7 +31,7 @@ float& Vector3F::operator [] (uint32 i)
 };
 
 
-float Vector3F::operator [] (uint32 i) const
+float Vector2F::operator [] (uint32 i) const
 {
 	if(i < SIZE)
 	{
@@ -42,114 +42,105 @@ float Vector3F::operator [] (uint32 i) const
 };
 
 
-float Vector3F::Length() const
+float Vector2F::Length() const
 {
-    return sqrtf(data[0]*data[0] + data[1]*data[1] + data[2]*data[2]);
+    return sqrtf(data[0]*data[0] + data[1]*data[1]);
 }
 
 
-void Vector3F::Zero()
+void Vector2F::Zero()
 {
     data[0] = 0.0f;
     data[1] = 0.0f;
-    data[2] = 0.0f;
 }
 
 
 // overload + operator to provide a vector addition
-Vector3F Vector3F::operator+(const Vector3F &vecIn)
+Vector2F Vector2F::operator+(const Vector2F &vecIn)
 {
-    Vector3F vecOut;
+    Vector2F vecOut;
     vecOut[0] = data[0] + vecIn[0];
     vecOut[1] = data[1] + vecIn[1];
-    vecOut[2] = data[2] + vecIn[2];
     return vecOut;
 }
 
 
 // overload - operator to provide a vector subtraction
-Vector3F Vector3F::operator-(const Vector3F &vecIn)
+Vector2F Vector2F::operator-(const Vector2F &vecIn)
 {
-    Vector3F vecOut;
+    Vector2F vecOut;
     vecOut[0] = data[0] - vecIn[0];
     vecOut[1] = data[1] - vecIn[1];
-    vecOut[2] = data[2] - vecIn[2];
     return vecOut;
 }
 
 
 // overload % operator to provide a vector cross product
-Vector3F Vector3F::operator%(const Vector3F &vecIn)
+Vector2F Vector2F::operator%(const Vector2F &vecIn)
 {
-    Vector3F vecOut;
+    Vector2F vecOut;
     vecOut[0] = data[1]*vecIn[2] - data[2]*vecIn[1];
     vecOut[1] = data[2]*vecIn[0] - data[0]*vecIn[2];
-    vecOut[2] = data[0]*vecIn[1] - data[1]*vecIn[0];
     return vecOut;
 }
 
 
 // overload * operator to provide a vector scalar product
-Vector3F Vector3F::operator*(const float scalar)
+Vector2F Vector2F::operator*(const float scalar)
 {
-    Vector3F vecOut;
+    Vector2F vecOut;
     vecOut[0] = data[0] * scalar;
     vecOut[1] = data[1] * scalar;
-    vecOut[2] = data[2] * scalar;
     return vecOut;
 }
 
 
 // overload / operator to provide a vector scalar division
-Vector3F Vector3F::operator/(const float scalar)
+Vector2F Vector2F::operator/(const float scalar)
 {
-    Vector3F vecOut;
+    Vector2F vecOut;
     vecOut[0] = data[0] / scalar;
     vecOut[1] = data[1] / scalar;
-    vecOut[2] = data[2] / scalar;
     return vecOut;
 }
 
 
 // overload dot product operator to provide a vector scalar product
-float Vector3F::operator*(const Vector3F &vecIn)
+float Vector2F::operator*(const Vector2F &vecIn)
 {
 	float res = 0.0f;
 
 	res = data[0] * vecIn[0];
 	res += data[1] * vecIn[1];
-	res += data[2] * vecIn[2];
 
 	return res;
 }
 
 
-Vector3F Vector3F::operator-() const
+Vector2F Vector2F::operator-() const
 {
-	Vector3F res;
+	Vector2F res;
 
 	res[0] = -data[0];
 	res[1] = -data[1];
-	res[2] = -data[2];
 
     return res;
 }
 
 
-Vector3F Vector3F::EMult(const Vector3F &vecIn)
+Vector2F Vector2F::EMult(const Vector2F &vecIn)
 {
-	Vector3F res;
+	Vector2F res;
 
 	res[0] = data[0] * vecIn[0];
 	res[1] = data[1] * vecIn[1];
-	res[2] = data[2] * vecIn[2];
 
 	return res;
 }
 
 
 
-void Vector3F::Constrain(uint32 i, float min, float max)
+void Vector2F::Constrain(uint32 i, float min, float max)
 {
 	if(data[i] < min)
 	{
@@ -163,15 +154,13 @@ void Vector3F::Constrain(uint32 i, float min, float max)
 
 
 
-Vector3F Vector3F::Normalized(void)
+Vector2F Vector2F::Normalized(void)
 {
-	Vector3F res;
+	Vector2F res;
 	float mag = Length();
 
 	res[0] = data[0] / mag;
 	res[1] = data[1] / mag;
-	res[2] = data[2] / mag;
 
 	return res;
 }
-

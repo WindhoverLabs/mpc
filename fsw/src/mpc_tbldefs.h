@@ -536,7 +536,7 @@ typedef struct
      * @decimal 2
      * @group Multicopter Position Control
      */
-    uint32 Z_MAN_EXPO;
+    float Z_MAN_EXPO;
 
     /**
      * Altitude for 1. step of slow landing (descend)

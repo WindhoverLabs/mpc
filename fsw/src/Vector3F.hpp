@@ -30,6 +30,7 @@ public:
 	Vector3F operator-() const;
 	Vector3F EMult(const Vector3F &vecIn);
 	void Constrain(uint32 i, float min, float max);
+	Vector3F Normalized(void);
 
 protected:
 

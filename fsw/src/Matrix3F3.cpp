@@ -223,10 +223,10 @@ Matrix3F3 Matrix3F3::FromEuler(float roll, float pitch, float yaw)
 
 	float cp = cosf(pitch);
 	float sp = sinf(pitch);
-	float sr = sinf(roll);
 	float cr = cosf(roll);
-	float sy = sinf(yaw);
+	float sr = sinf(roll);
 	float cy = cosf(yaw);
+	float sy = sinf(yaw);
 
 	matrix[0][0] = cp * cy;
 	matrix[0][1] = (sr * sp * cy) - (cr * sy);

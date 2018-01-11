@@ -10,10 +10,13 @@
 #include "mpc_version.h"
 #include "Quaternion.hpp"
 #include "Matrix3F3.hpp"
+#include "Vector2F.hpp"
+#include "Quaternion.hpp"
 #include <float.h>
 #include <math.h>
 #include "lib/px4lib.h"
 #include "geo/geo.h"
+#include "lib/mathlib/math/Expo.hpp"
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -276,6 +279,8 @@ void MPC::InitData()
 	VelocityErrD.Zero();
 	CurrentPositionSetpoint.Zero();
 	TrustInt.Zero();
+
+	RSetpoint.Identity();
 
 	ResetPositionSetpoint = true;
 	ResetAltitudeSetpoint = true;
@@ -1204,7 +1209,7 @@ void MPC::UpdateVelocityDerivative(float dt)
 		return;
 	}
 
-	// TODO: this logic should be in the estimator, not the controller!
+	/* TODO: this logic should be in the estimator, not the controller! */
 	if (isfinite(VehicleLocalPositionMsg.X) &&
 		isfinite(VehicleLocalPositionMsg.Y) &&
 		isfinite(VehicleLocalPositionMsg.Z))
@@ -1264,8 +1269,7 @@ void MPC::DoControl(float dt)
 	if (VehicleControlModeMsg.ControlManualEnabled)
 	{
 		/* Manual control */
-		/* TODO */
-		//control_manual(dt);
+		ControlManual(dt);
 		ModeAuto = false;
 
 		/* We set tiplets to false.  This ensures that when switching to auto,
@@ -1278,8 +1282,7 @@ void MPC::DoControl(float dt)
 	}
 	else
 	{
-		/* TODO */
-		//control_non_manual(dt);
+		ControlNonManual(dt);
 	}
 }
 
@@ -1304,9 +1307,7 @@ void MPC::GenerateAttitudeSetpoint(float dt)
 		const float yaw_offset_max = yaw_rate_max / ConfigTblPtr->MC_YAW_P;
 
 		VehicleAttitudeSetpointMsg.YawSpMoveRate = ManualControlSetpointMsg.R * yaw_rate_max;
-		/* TODO - Implement _wrap_pi and remove temporary stubs. */
-		//float yaw_target = 0.0f;
-		//float yaw_offs = 0.0f;
+
 		float yaw_target = _wrap_pi(VehicleAttitudeSetpointMsg.YawBody + VehicleAttitudeSetpointMsg.YawSpMoveRate * dt);
 		float yaw_offs = _wrap_pi(yaw_target - Yaw);
 
@@ -1323,17 +1324,14 @@ void MPC::GenerateAttitudeSetpoint(float dt)
 	/* Control throttle directly if no climb rate controller is active */
 	if (!VehicleControlModeMsg.ControlClimbRateEnabled)
 	{
-		/* TODO - Implement throttle_curve and replace stubs. */
-	    float thr_val = 0.0f;
-		//float thr_val = throttle_curve(_manual.z, _params.thr_hover);
-	    /* TODO - Implement _manual_thr_max. */
-	    //VehicleAttitudeSetpointMsg.Thrust = math::min(thr_val, _manual_thr_max.get());
+		float thr_val = ThrottleCurve(ManualControlSetpointMsg.Z, ConfigTblPtr->THR_HOVER);
+
+	    VehicleAttitudeSetpointMsg.Thrust = fmin(thr_val, ConfigTblPtr->MANTHR_MAX);
 
 		/* Enforce minimum throttle if not landed */
 		if (!VehicleLandDetectedMsg.Landed)
 		{
-		    /* TODO - Implement _manual_thr_min. */
-			//VehicleAttitudeSetpointMsg.Thrust = math::max(_att_sp.thrust, _manual_thr_min.get());
+			VehicleAttitudeSetpointMsg.Thrust = fmax(VehicleAttitudeSetpointMsg.Thrust, ConfigTblPtr->MANTHR_MIN);
 		}
 	}
 
@@ -1372,9 +1370,10 @@ void MPC::GenerateAttitudeSetpoint(float dt)
 			R_yaw_correction.FromEuler(0.0f, 0.0f, -yaw_error);
 			z_roll_pitch_sp = R_yaw_correction * z_roll_pitch_sp;
 
-			// Use the formula z_roll_pitch_sp = R_tilt * [0;0;1]
-			// R_tilt is computed from_euler; only true if cos(roll) not equal zero
-			// -> valid if roll is not +-pi/2;
+			/* Use the formula z_roll_pitch_sp = R_tilt * [0;0;1]
+			 * R_tilt is computed from_euler; only true if cos(roll) not equal zero
+			 * -> valid if roll is not +-pi/2;
+			 */
 			VehicleAttitudeSetpointMsg.RollBody = -asinf(z_roll_pitch_sp[1]);
 			VehicleAttitudeSetpointMsg.PitchBody = atan2f(z_roll_pitch_sp[0], z_roll_pitch_sp[2]);
 		}
@@ -1406,6 +1405,478 @@ void MPC::GenerateAttitudeSetpoint(float dt)
 	VehicleAttitudeSetpointMsg.Timestamp = PX4LIB_GetPX4TimeUs();
 }
 
+
+
+void MPC::ControlManual(float dt)
+{
+	/* Velocity setpoint commanded by user stick input. */
+	math::Vector3F man_vel_sp;
+
+	/* Entering manual control from non-manual control mode, reset alt/pos setpoints */
+	if (ModeAuto)
+	{
+		ModeAuto = false;
+
+		/* Reset alt pos flags if resetting is enabled. */
+		if (DoResetAltPos)
+		{
+			ResetPositionSetpoint = true;
+			ResetAltitudeSetpoint = true;
+		}
+	}
+
+	/*
+	 * Map from stick input to velocity setpoint.
+	 */
+
+	if(VehicleControlModeMsg.ControlAltitudeEnabled)
+	{
+		/* Set vertical velocity setpoint with throttle stick, remapping of
+		 * manual.z [0,1] to up and down command [-1,1] */
+		man_vel_sp[2] = -math::expof_deadzone(
+				(ManualControlSetpointMsg.Z - 0.5f) * 2.0f,
+				ConfigTblPtr->XY_MAN_EXPO, ConfigTblPtr->HOLD_DZ);
+
+		/* Reset alt setpoint to current altitude if needed. */
+		ResetAltSetpoint();
+	}
+
+	if (VehicleControlModeMsg.ControlPositionEnabled)
+	{
+		float man_vel_hor_length;
+		math::Vector2F man_vel_hor;
+
+		/* Set horizontal velocity setpoint with roll/pitch stick */
+		man_vel_sp[0] = math::expof_deadzone(
+				ManualControlSetpointMsg.X,
+				ConfigTblPtr->XY_MAN_EXPO, ConfigTblPtr->HOLD_DZ);
+		man_vel_sp[1] = math::expof_deadzone(
+				ManualControlSetpointMsg.Y,
+				ConfigTblPtr->XY_MAN_EXPO, ConfigTblPtr->HOLD_DZ);
+
+		/* Get the horizontal component of the velocity vector. */
+		man_vel_hor[0] = man_vel_sp[0];
+		man_vel_hor[1] = man_vel_sp[1];
+
+		/* Get the magnitude of the horizontal component. */
+		man_vel_hor_length = man_vel_hor.Length();
+
+		/* Saturate such that magnitude is never larger than 1 */
+		if (man_vel_hor_length > 1.0f)
+		{
+			man_vel_sp[0] /= man_vel_hor_length;
+			man_vel_sp[1] /= man_vel_hor_length;
+		}
+
+		/* Reset position setpoint to current position if needed */
+		ResetPosSetpoint();
+	}
+
+	/* Prepare yaw to rotate into NED frame */
+	float yaw_input_frame = VehicleControlModeMsg.ControlFixedHdgEnabled ? YawTakeoff : VehicleAttitudeSetpointMsg.YawBody;
+
+	/* Prepare cruise speed (m/s) vector to scale the velocity setpoint */
+	float vel_mag = (ConfigTblPtr->VEL_MAN_MAX < VelMaxXY) ? ConfigTblPtr->VEL_MAN_MAX : VelMaxXY;
+	math::Vector3F vel_cruise_scale(vel_mag, vel_mag, (man_vel_sp[2] > 0.0f) ? ConfigTblPtr->Z_VEL_MAX_DN : ConfigTblPtr->Z_VEL_MAX_UP);
+
+	/* Setpoint in NED frame and scaled to cruise velocity */
+	man_vel_sp = math::Matrix3F3::FromEuler(0.0f, 0.0f, yaw_input_frame) * man_vel_sp.EMult(vel_cruise_scale);
+
+	/*
+	 * Assisted velocity mode: User controls velocity, but if velocity is small enough, position
+	 * hold is activated for the corresponding axis.
+	 */
+
+	/* Want to get/stay in altitude hold if user has z stick in the middle (accounted for deadzone already) */
+	const bool alt_hold_desired = VehicleControlModeMsg.ControlAltitudeEnabled && fabsf(man_vel_sp[2]) < FLT_EPSILON;
+
+	/* Want to get/stay in position hold if user has xy stick in the middle (accounted for deadzone already) */
+	const bool pos_hold_desired = VehicleControlModeMsg.ControlPositionEnabled &&
+				      fabsf(man_vel_sp[0]) < FLT_EPSILON && fabsf(man_vel_sp[1]) < FLT_EPSILON;
+
+	/* Check vertical hold engaged flag. */
+	if (AltitudeHoldEngaged)
+	{
+		AltitudeHoldEngaged = alt_hold_desired;
+	}
+	else
+	{
+		/* Check if we switch to alt_hold_engaged. */
+		bool smooth_alt_transition = AltitudeHoldEngaged &&
+					     (ConfigTblPtr->HOLD_MAX_Z < FLT_EPSILON || fabsf(Velocity[2]) < ConfigTblPtr->HOLD_MAX_Z);
+
+		/* During transition predict setpoint forward. */
+		if (smooth_alt_transition)
+		{
+			/* Get max acceleration. */
+			float max_acc_z = (Velocity[2] < 0.0f ? ConfigTblPtr->ACC_DOWN_MAX : -ConfigTblPtr->ACC_UP_MAX);
+
+			/* Time to travel from current velocity to zero velocity. */
+			float delta_t = fabsf(Velocity[2] / max_acc_z);
+
+			/* Set desired position setpoint assuming max acceleraiton. */
+			PositionSetpoint[2] = PositionSetpoint[2] + Velocity[2] * delta_t + 0.5f * max_acc_z * delta_t * delta_t;
+
+			AltitudeHoldEngaged = true;
+		}
+	}
+
+	/* Check horizontal hold engaged flag. */
+	if (PositionHoldEngaged)
+	{
+		PositionHoldEngaged = pos_hold_desired;
+	}
+	else
+	{
+		/* Check if we switch to pos_hold_engaged. */
+		float vel_xy_mag = sqrtf(Velocity[0] * Velocity[0] + Velocity[1] * Velocity[1]);
+		bool smooth_pos_transition = pos_hold_desired &&
+					     (ConfigTblPtr->HOLD_MAX_XY < FLT_EPSILON || vel_xy_mag < ConfigTblPtr->HOLD_MAX_XY);
+
+		/* During transition predict setpoint forward. */
+		if (smooth_pos_transition)
+		{
+			/* Time to travel from current velocity to zero velocity. */
+			float delta_t = sqrtf(Velocity[0] * Velocity[0] + Velocity[1] * Velocity[1]) / ConfigTblPtr->ACC_HOR_MAX;
+
+			/* p pos_sp in xy from max acceleration and current velocity */
+			math::Vector2F pos(Position[0], Position[1]);
+			math::Vector2F vel(Velocity[0], Velocity[1]);
+			math::Vector2F pos_sp = pos + vel * delta_t - vel.Normalized() * 0.5f * ConfigTblPtr->ACC_HOR_MAX * delta_t * delta_t;
+			PositionSetpoint[0] = pos_sp[0];
+			PositionSetpoint[1] = pos_sp[1];
+
+			PositionHoldEngaged = true;
+		}
+	}
+
+	/* Set requested velocity setpoints */
+	if (!AltitudeHoldEngaged)
+	{
+		PositionSetpoint[2] = Position[2];
+		/* Request velocity setpoint to be used, instead of altitude setpoint */
+		RunAltControl = false;
+		VelocitySetpoint[2] = man_vel_sp[2];
+	}
+
+	if (!PositionHoldEngaged)
+	{
+		PositionSetpoint[0] = Position[0];
+		PositionSetpoint[1] = Position[1];
+		/* Request velocity setpoint to be used, instead of position setpoint */
+		RunPosControl = false;
+		VelocitySetpoint[0] = man_vel_sp[0];
+		VelocitySetpoint[1] = man_vel_sp[1];
+	}
+
+	if (VehicleLandDetectedMsg.Landed)
+	{
+		/* Don't run controller when landed */
+		ResetPositionSetpoint = true;
+		ResetAltitudeSetpoint = true;
+		ModeAuto = false;
+		ResetIntZ = true;
+		ResetIntXY = true;
+
+		RSetpoint.Identity();
+
+		VehicleAttitudeSetpointMsg.RollBody = 0.0f;
+		VehicleAttitudeSetpointMsg.PitchBody = 0.0f;
+		VehicleAttitudeSetpointMsg.YawBody = Yaw;
+		VehicleAttitudeSetpointMsg.Thrust = 0.0f;
+
+		VehicleAttitudeSetpointMsg.Timestamp = PX4LIB_GetPX4TimeUs();
+
+	}
+	else
+	{
+		ControlPosition(dt);
+	}
+}
+
+
+
+void MPC::ControlNonManual(float dt)
+{
+	/* Select control source. */
+	if(VehicleControlModeMsg.ControlOffboardEnabled)
+	{
+		/* Offboard control */
+		ControlOffboard(dt);
+		ModeAuto = false;
+
+	}
+	else
+	{
+		HoldOffboardXY = false;
+		HoldOffboardZ = false;
+
+		/* AUTO */
+		/* TODO */
+		//control_auto(dt);
+	}
+
+	/* Weather-vane mode for vtol: disable yaw control */
+	if (VehicleStatusMsg.IsVtol)
+	{
+		VehicleAttitudeSetpointMsg.DisableMcYawControl = PositionSetpointTripletMsg.Current.DisableMcYawControl;
+	}
+	else
+	{
+		VehicleAttitudeSetpointMsg.DisableMcYawControl = false;
+	}
+
+	/* Guard against any bad velocity values. */
+	bool velocity_valid = isfinite(PositionSetpointTripletMsg.Current.VX) &&
+			isfinite(PositionSetpointTripletMsg.Current.VY) &&
+			PositionSetpointTripletMsg.Current.VelocityValid;
+
+	/* Do not go slower than the follow target velocity when position tracking
+	 * is active (set to valid)
+	 */
+	if (PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_FOLLOW_TARGET &&
+	    velocity_valid &&
+		PositionSetpointTripletMsg.Current.PositionValid)
+	{
+		math::Vector3F ft_vel(PositionSetpointTripletMsg.Current.VX, PositionSetpointTripletMsg.Current.VY, 0);
+
+		float cos_ratio = (ft_vel * VelocitySetpoint) / (ft_vel.Length() * VelocitySetpoint.Length());
+
+		/* Only override velocity set points when uav is traveling in same
+		 * direction as target and vector component is greater than
+		 * calculated position set point velocity component.
+		 */
+		if (cos_ratio > 0)
+		{
+			ft_vel = ft_vel * cos_ratio;
+			/* Min speed a little faster than target vel. */
+			ft_vel = ft_vel + ft_vel.Normalized() * 1.5f;
+
+		}
+		else
+		{
+			ft_vel.Zero();
+		}
+
+		VelocitySetpoint[0] = fabsf(ft_vel[0]) > fabsf(VelocitySetpoint[0]) ? ft_vel[0] : VelocitySetpoint[0];
+		VelocitySetpoint[1] = fabsf(ft_vel[1]) > fabsf(VelocitySetpoint[1]) ? ft_vel[1] : VelocitySetpoint[1];
+
+		/* Track target using velocity only. */
+
+	}
+	else if(PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_FOLLOW_TARGET &&
+		   velocity_valid)
+	{
+		VelocitySetpoint[0] = PositionSetpointTripletMsg.Current.VX;
+		VelocitySetpoint[1] = PositionSetpointTripletMsg.Current.VY;
+	}
+
+	/* Use constant descend rate when landing, ignore altitude setpoint. */
+	if (PositionSetpointTripletMsg.Current.Valid
+	    && PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_LAND)
+	{
+		VelocitySetpoint[2] = ConfigTblPtr->LAND_SPEED;
+		RunAltControl = false;
+	}
+
+	if (PositionSetpointTripletMsg.Current.Valid
+	    && PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_IDLE)
+	{
+		/* Idle state, don't run controller and set zero thrust. */
+		RSetpoint.Identity();
+
+		math::Quaternion qd(RSetpoint);
+		qd.copyTo(VehicleAttitudeSetpointMsg.Q_D);
+		VehicleAttitudeSetpointMsg.Q_D_Valid = true;
+
+		VehicleAttitudeSetpointMsg.RollBody = 0.0f;
+		VehicleAttitudeSetpointMsg.PitchBody = 0.0f;
+		VehicleAttitudeSetpointMsg.YawBody = Yaw;
+		VehicleAttitudeSetpointMsg.Thrust = 0.0f;
+
+		VehicleAttitudeSetpointMsg.Timestamp = PX4LIB_GetPX4TimeUs();
+	}
+	else
+	{
+		/* TODO */
+		//control_position(dt);
+	}
+}
+
+
+
+float MPC::ThrottleCurve(float ctl, float ctr)
+{
+	float result;
+
+	/* Piecewise linear mapping: 0:ctr -> 0:0.5
+	 * and ctr:1 -> 0.5:1 */
+	if (ctl < 0.5f)
+	{
+		result = 2.0f * ctl * ctr;
+	}
+	else
+	{
+		result = ctr + 2.0f * (ctl - 0.5f) * (1.0f - ctr);
+	}
+
+	return result;
+}
+
+
+
+void MPC::ResetAltSetpoint(void)
+{
+	if (ResetAltitudeSetpoint)
+	{
+		ResetAltitudeSetpoint = false;
+
+		/* We have logic in the main function which chooses the velocity setpoint such that the attitude setpoint is
+		 * continuous when switching into velocity controlled mode, therefore, we don't need to bother about resetting
+		 * altitude in a special way. */
+		PositionSetpoint[0] = Position[0];
+		PositionSetpoint[1] = Position[1];
+	}
+}
+
+
+
+void MPC::ResetPosSetpoint(void)
+{
+	if (ResetPositionSetpoint)
+	{
+		ResetAltitudeSetpoint = false;
+
+		/* We have logic in the main function which chooses the velocity setpoint such that the attitude setpoint is
+		 * continuous when switching into velocity controlled mode, therefore, we don't need to bother about resetting
+		 * position in a special way. In position control mode the position will be reset anyway until the vehicle has reduced speed.
+		 */
+		PositionSetpoint[2] = Position[2];
+	}
+}
+
+
+
+void MPC::ControlPosition(float dt)
+{
+	/* TODO */
+	//calculate_velocity_setpoint(dt);
+
+	if (VehicleControlModeMsg.ControlClimbRateEnabled || VehicleControlModeMsg.ControlVelocityEnabled ||
+			VehicleControlModeMsg.ControlAccelerationEnabled)
+	{
+		/* TODO */
+		//calculate_thrust_setpoint(dt);
+	}
+	else
+	{
+		ResetIntZ = true;
+	}
+}
+
+
+
+void MPC::ControlOffboard(float dt)
+{
+	if(PositionSetpointTripletMsg.Current.Valid)
+	{
+		if (VehicleControlModeMsg.ControlPositionEnabled && PositionSetpointTripletMsg.Current.PositionValid)
+		{
+			/* Control position */
+			PositionSetpoint[0] = PositionSetpointTripletMsg.Current.X;
+			PositionSetpoint[1] = PositionSetpointTripletMsg.Current.Y;
+			RunPosControl = true;
+
+			HoldOffboardXY = false;
+		}
+		else if(VehicleControlModeMsg.ControlVelocityEnabled &&
+				PositionSetpointTripletMsg.Current.VelocityValid)
+		{
+			/* Control velocity */
+
+			/* Reset position setpoint to current position if needed */
+			ResetPosSetpoint();
+
+			if (fabsf(PositionSetpointTripletMsg.Current.VX) <= FLT_EPSILON &&
+			    fabsf(PositionSetpointTripletMsg.Current.VY) <= FLT_EPSILON &&
+			    VehicleLocalPosition.XYValid)
+			{
+				if (!HoldOffboardXY)
+				{
+					PositionSetpoint[0] = Position[0];
+					PositionSetpoint[1] = Position[1];
+					HoldOffboardXY = true;
+				}
+
+				RunPosControl = true;
+			}
+			else
+			{
+				if (_pos_sp_triplet.current.velocity_frame == position_setpoint_s::VELOCITY_FRAME_LOCAL_NED) {
+					/* set position setpoint move rate */
+					_vel_sp(0) = _pos_sp_triplet.current.vx;
+					_vel_sp(1) = _pos_sp_triplet.current.vy;
+
+				} else if (_pos_sp_triplet.current.velocity_frame == position_setpoint_s::VELOCITY_FRAME_BODY_NED) {
+					// Transform velocity command from body frame to NED frame
+					_vel_sp(0) = cosf(_yaw) * _pos_sp_triplet.current.vx - sinf(_yaw) * _pos_sp_triplet.current.vy;
+					_vel_sp(1) = sinf(_yaw) * _pos_sp_triplet.current.vx + cosf(_yaw) * _pos_sp_triplet.current.vy;
+
+				} else {
+					PX4_WARN("Unknown velocity offboard coordinate frame");
+				}
+
+				_run_pos_control = false;
+
+				_hold_offboard_xy = false;
+			}
+		}
+
+		if (_control_mode.flag_control_altitude_enabled && _pos_sp_triplet.current.alt_valid) {
+			/* control altitude as it is enabled */
+			_pos_sp(2) = _pos_sp_triplet.current.z;
+			_run_alt_control = true;
+
+			_hold_offboard_z = false;
+
+		} else if (_control_mode.flag_control_climb_rate_enabled && _pos_sp_triplet.current.velocity_valid) {
+
+			/* reset alt setpoint to current altitude if needed */
+			reset_alt_sp();
+
+			if (fabsf(_pos_sp_triplet.current.vz) <= FLT_EPSILON &&
+			    _local_pos.z_valid) {
+
+				if (!_hold_offboard_z) {
+					_pos_sp(2) = _pos(2);
+					_hold_offboard_z = true;
+				}
+
+				_run_alt_control = true;
+
+			} else {
+				/* set position setpoint move rate */
+				_vel_sp(2) = _pos_sp_triplet.current.vz;
+				_run_alt_control = false;
+
+				_hold_offboard_z = false;
+			}
+		}
+
+		if (_pos_sp_triplet.current.yaw_valid) {
+			_att_sp.yaw_body = _pos_sp_triplet.current.yaw;
+
+		} else if (_pos_sp_triplet.current.yawspeed_valid) {
+			_att_sp.yaw_body = _att_sp.yaw_body + _pos_sp_triplet.current.yawspeed * dt;
+		}
+
+	} else {
+		_hold_offboard_xy = false;
+		_hold_offboard_z = false;
+		reset_pos_sp();
+		reset_alt_sp();
+	}
+}
 
 
 /************************/
