@@ -1612,8 +1612,7 @@ void MPC::ControlNonManual(float dt)
 		HoldOffboardZ = false;
 
 		/* AUTO */
-		/* TODO */
-		//control_auto(dt);
+		ControlAuto(dt);
 	}
 
 	/* Weather-vane mode for vtol: disable yaw control */
@@ -1698,8 +1697,7 @@ void MPC::ControlNonManual(float dt)
 	}
 	else
 	{
-		/* TODO */
-		//control_position(dt);
+		ControlPosition(dt);
 	}
 }
 
@@ -1799,7 +1797,7 @@ void MPC::ControlOffboard(float dt)
 
 			if (fabsf(PositionSetpointTripletMsg.Current.VX) <= FLT_EPSILON &&
 			    fabsf(PositionSetpointTripletMsg.Current.VY) <= FLT_EPSILON &&
-			    VehicleLocalPosition.XYValid)
+			    VehicleLocalPositionMsg.XY_Valid)
 			{
 				if (!HoldOffboardXY)
 				{
@@ -1812,69 +1810,360 @@ void MPC::ControlOffboard(float dt)
 			}
 			else
 			{
-				if (_pos_sp_triplet.current.velocity_frame == position_setpoint_s::VELOCITY_FRAME_LOCAL_NED) {
-					/* set position setpoint move rate */
-					_vel_sp(0) = _pos_sp_triplet.current.vx;
-					_vel_sp(1) = _pos_sp_triplet.current.vy;
-
-				} else if (_pos_sp_triplet.current.velocity_frame == position_setpoint_s::VELOCITY_FRAME_BODY_NED) {
-					// Transform velocity command from body frame to NED frame
-					_vel_sp(0) = cosf(_yaw) * _pos_sp_triplet.current.vx - sinf(_yaw) * _pos_sp_triplet.current.vy;
-					_vel_sp(1) = sinf(_yaw) * _pos_sp_triplet.current.vx + cosf(_yaw) * _pos_sp_triplet.current.vy;
-
-				} else {
-					PX4_WARN("Unknown velocity offboard coordinate frame");
+				if (PositionSetpointTripletMsg.Current.VelocityFrame == PX4_VELOCITY_FRAME_LOCAL_NED)
+				{
+					/* Set position setpoint move rate */
+					VelocitySetpoint[0] = PositionSetpointTripletMsg.Current.VX;
+					VelocitySetpoint[1] = PositionSetpointTripletMsg.Current.VY;
+				}
+				else if (PositionSetpointTripletMsg.Current.VelocityFrame == PX4_VELOCITY_FRAME_BODY_NED) {
+					/* Transform velocity command from body frame to NED frame */
+					VelocitySetpoint[0] = cosf(Yaw) * PositionSetpointTripletMsg.Current.VX - sinf(Yaw) * PositionSetpointTripletMsg.Current.VY;
+					VelocitySetpoint[1] = sinf(Yaw) * PositionSetpointTripletMsg.Current.VX + cosf(Yaw) * PositionSetpointTripletMsg.Current.VY;
+				}
+				else
+				{
+					/* TODO:  Replace with a CFE Event. */
+					OS_printf("Unknown velocity offboard coordinate frame");
 				}
 
-				_run_pos_control = false;
+				RunPosControl = false;
 
-				_hold_offboard_xy = false;
+				HoldOffboardXY = false;
 			}
 		}
 
-		if (_control_mode.flag_control_altitude_enabled && _pos_sp_triplet.current.alt_valid) {
-			/* control altitude as it is enabled */
-			_pos_sp(2) = _pos_sp_triplet.current.z;
-			_run_alt_control = true;
+		if (VehicleControlModeMsg.ControlAltitudeEnabled && PositionSetpointTripletMsg.Current.AltValid)
+		{
+			/* Control altitude as it is enabled. */
+			PositionSetpoint[2] = PositionSetpointTripletMsg.Current.Z;
+			RunAltControl = true;
 
-			_hold_offboard_z = false;
+			HoldOffboardZ = false;
 
-		} else if (_control_mode.flag_control_climb_rate_enabled && _pos_sp_triplet.current.velocity_valid) {
+		}
+		else if (VehicleControlModeMsg.ControlClimbRateEnabled && PositionSetpointTripletMsg.Current.VelocityValid)
+		{
+			/* Reset alt setpoint to current altitude if needed */
+			ResetAltSetpoint();
 
-			/* reset alt setpoint to current altitude if needed */
-			reset_alt_sp();
-
-			if (fabsf(_pos_sp_triplet.current.vz) <= FLT_EPSILON &&
-			    _local_pos.z_valid) {
-
-				if (!_hold_offboard_z) {
-					_pos_sp(2) = _pos(2);
-					_hold_offboard_z = true;
+			if (fabsf(PositionSetpointTripletMsg.Current.VZ) <= FLT_EPSILON &&
+			    VehicleLocalPositionMsg.Z_Valid)
+			{
+				if (!HoldOffboardZ)
+				{
+					PositionSetpoint[2] = Position[2];
+					HoldOffboardZ = true;
 				}
 
-				_run_alt_control = true;
+				RunAltControl = true;
 
-			} else {
-				/* set position setpoint move rate */
-				_vel_sp(2) = _pos_sp_triplet.current.vz;
-				_run_alt_control = false;
+			}
+			else
+			{
+				/* Set position setpoint move rate */
+				VelocitySetpoint[2] = PositionSetpointTripletMsg.Current.VZ;
+				RunAltControl = false;
 
-				_hold_offboard_z = false;
+				HoldOffboardZ = false;
 			}
 		}
 
-		if (_pos_sp_triplet.current.yaw_valid) {
-			_att_sp.yaw_body = _pos_sp_triplet.current.yaw;
+		if (PositionSetpointTripletMsg.Current.YawValid)
+		{
+			VehicleAttitudeSetpointMsg.YawBody = PositionSetpointTripletMsg.Current.Yaw;
+		}
+		else if (PositionSetpointTripletMsg.Current.YawspeedValid)
+		{
+			VehicleAttitudeSetpointMsg.YawBody = VehicleAttitudeSetpointMsg.YawBody + PositionSetpointTripletMsg.Current.Yawspeed * dt;
+		}
+	}
+	else
+	{
+		HoldOffboardXY = false;
+		HoldOffboardZ = false;
+		ResetPosSetpoint();
+		ResetAltSetpoint();
+	}
+}
 
-		} else if (_pos_sp_triplet.current.yawspeed_valid) {
-			_att_sp.yaw_body = _att_sp.yaw_body + _pos_sp_triplet.current.yawspeed * dt;
+
+
+void MPC::ControlAuto(float dt)
+{
+	/* Reset position setpoint on AUTO mode activation or if we are not in
+	 * MC mode */
+	if (!ModeAuto || !VehicleStatusMsg.IsRotaryWing)
+	{
+		if (!ModeAuto)
+		{
+			ModeAuto = true;
 		}
 
-	} else {
-		_hold_offboard_xy = false;
-		_hold_offboard_z = false;
-		reset_pos_sp();
-		reset_alt_sp();
+		ResetPositionSetpoint = true;
+		ResetAltitudeSetpoint = true;
+	}
+
+	/* Always check reset state of altitude and position control flags in auto. */
+	ResetPosSetpoint();
+	ResetAltSetpoint();
+
+	bool current_setpoint_valid = false;
+	bool previous_setpoint_valid = false;
+	bool next_setpoint_valid = false;
+
+	math::Vector3F prev_sp;
+	math::Vector3F next_sp;
+
+	if (PositionSetpointTripletMsg.Current.Valid)
+	{
+		/* Only project setpoints if they are finite, else use current
+		 * position. */
+		if (isfinite(PositionSetpointTripletMsg.Current.Lat) &&
+		    isfinite(PositionSetpointTripletMsg.Current.Lon))
+		{
+			/* Project setpoint to local frame. */
+			map_projection_project(&RefPos,
+					PositionSetpointTripletMsg.Current.Lat, PositionSetpointTripletMsg.Current.Lon,
+					       &CurrentPositionSetpoint[0], &CurrentPositionSetpoint[1]);
+		}
+		else
+		{
+			CurrentPositionSetpoint[0] = Position[0];
+			CurrentPositionSetpoint[1] = Position[1];
+		}
+
+		/* Only project setpoints if they are finite, else use current position. */
+		if (isfinite(PositionSetpointTripletMsg.Current.Alt))
+		{
+			CurrentPositionSetpoint[2] = -(PositionSetpointTripletMsg.Current.Alt - RefAlt);
+		}
+		else
+		{
+			CurrentPositionSetpoint[2] = Position[2];
+		}
+
+		if (isfinite(CurrentPositionSetpoint[0]) &&
+				isfinite(CurrentPositionSetpoint[1]) &&
+				isfinite(CurrentPositionSetpoint[2]))
+		{
+			current_setpoint_valid = true;
+		}
+	}
+
+	if (PositionSetpointTripletMsg.Previous.Valid)
+	{
+		map_projection_project(&RefPos,
+				PositionSetpointTripletMsg.Previous.Lat, PositionSetpointTripletMsg.Previous.Lon,
+				       &prev_sp[0], &prev_sp[1]);
+		prev_sp[2] = -(PositionSetpointTripletMsg.Previous.Alt - RefAlt);
+
+		if (isfinite(prev_sp[0]) &&
+				isfinite(prev_sp[1]) &&
+				isfinite(prev_sp[2]))
+		{
+			previous_setpoint_valid = true;
+		}
+	}
+
+	if (PositionSetpointTripletMsg.Next.Valid)
+	{
+		map_projection_project(&RefPos,
+				PositionSetpointTripletMsg.Next.Lat, PositionSetpointTripletMsg.Next.Lon,
+				       &next_sp[0], &next_sp[1]);
+		next_sp[2] = -(PositionSetpointTripletMsg.Next.Alt - RefAlt);
+
+		if (isfinite(next_sp[0]) &&
+				isfinite(next_sp[1]) &&
+				isfinite(next_sp[2]))
+		{
+			next_setpoint_valid = true;
+		}
+	}
+
+	/* Set velocity limit if close to current setpoint and no next setpoint available. */
+	math::Vector3F dist = CurrentPositionSetpoint - Position;
+	LimitVelXY = (!next_setpoint_valid || (PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_LOITER))
+			&& (sqrtf(dist[0] * dist[0] + dist[1] * dist[1]) <= ConfigTblPtr->TARGET_THRE);
+
+	if (current_setpoint_valid &&
+	    (PositionSetpointTripletMsg.Current.Type != PX4_SETPOINT_TYPE_IDLE))
+	{
+		/* TODO:  Implement get_cruising_speed_xy() and remove temporary stub. */
+		float cruising_speed_xy = 0.0f;
+		//float cruising_speed_xy = get_cruising_speed_xy();
+		float cruising_speed_z = (CurrentPositionSetpoint[2] > Position[2]) ? ConfigTblPtr->Z_VEL_MAX_DN : ConfigTblPtr->Z_VEL_MAX_UP;
+
+		/* Scaled space: 1 == position error resulting max allowed speed. */
+		math::Vector3F cruising_speed(cruising_speed_xy, cruising_speed_xy, cruising_speed_z);
+
+		/* If previous is valid, we want to follow line. */
+		if (previous_setpoint_valid
+		    && (PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_POSITION  ||
+		    		PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_LOITER ||
+					PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_FOLLOW_TARGET))
+		{
+			/* TODO - Implement the line below and remove stub. */
+			//math::Vector3F scale = _params.pos_p.edivide(cruising_speed);
+            math::Vector3F scale(0.0f, 0.0f, 0.0f);
+
+			/* Convert current setpoint to scaled space. */
+			math::Vector3F curr_sp_s = CurrentPositionSetpoint.EMult(scale);
+
+			/* By default, use current setpoint as is. */
+			math::Vector3F pos_sp_s = curr_sp_s;
+
+			const float minimum_dist = 0.01f;
+
+			if ((CurrentPositionSetpoint - prev_sp).Length() > minimum_dist)
+			{
+				/* find X - cross point of unit sphere and trajectory */
+				math::Vector3F pos_s = Position.EMult(scale);
+				math::Vector3F prev_sp_s = prev_sp.EMult(scale);
+				math::Vector3F prev_curr_s = curr_sp_s - prev_sp_s;
+				math::Vector3F curr_pos_s = pos_s - curr_sp_s;
+				float curr_pos_s_len = curr_pos_s.Length();
+
+				/* We are close to current setpoint. */
+				if (curr_pos_s_len < 1.0f)
+				{
+					/* If next is valid, we want to have smooth transition. */
+					if (next_setpoint_valid && (next_sp - CurrentPositionSetpoint).Length() > minimum_dist)
+					{
+						math::Vector3F next_sp_s = next_sp.EMult(scale);
+
+						/* Calculate angle prev - curr - next */
+						math::Vector3F curr_next_s = next_sp_s - curr_sp_s;
+						math::Vector3F prev_curr_s_norm = prev_curr_s.Normalized();
+
+						/* cos(a) * curr_next, a = angle between current and next trajectory segments */
+						float cos_a_curr_next = prev_curr_s_norm * curr_next_s;
+
+						/* cos(b), b = angle pos - _curr_pos_sp - prev_sp */
+						float cos_b = -curr_pos_s * prev_curr_s_norm / curr_pos_s_len;
+
+						if (cos_a_curr_next > 0.0f && cos_b > 0.0f)
+						{
+							float curr_next_s_len = curr_next_s.Length();
+
+							/* If curr - next distance is larger than unit radius, limit it. */
+							if (curr_next_s_len > 1.0f)
+							{
+								cos_a_curr_next /= curr_next_s_len;
+							}
+
+							/* Feed forward position setpoint offset. */
+							math::Vector3F pos_ff = prev_curr_s_norm *
+										 cos_a_curr_next * cos_b * cos_b * (1.0f - curr_pos_s_len) *
+										 (1.0f - expf(-curr_pos_s_len * curr_pos_s_len * 20.0f));
+							pos_sp_s = pos_sp_s + pos_ff;
+						}
+					}
+				}
+				else
+				{
+					/* If not close to current setpoint, check if we are
+					 * within cross_sphere_line. */
+					/* TODO - Implement cross_sphere_line and replace stub. */
+					//bool near = cross_sphere_line(pos_s, 1.0f, prev_sp_s, curr_sp_s, pos_sp_s);
+					bool near = false;
+
+					if (!near)
+					{
+						/* We're far away from trajectory, pos_sp_s is set to
+						 * the nearest point on the trajectory */
+						pos_sp_s = pos_s + (pos_sp_s - pos_s).Normalized();
+					}
+				}
+			}
+
+			/* Move setpoint not faster than max allowed speed. */
+			math::Vector3F pos_sp_old_s = PositionSetpoint.EMult(scale);
+
+			/* Difference between current and desired position setpoints, 1 = max speed. */
+			/* TODO:  Implement edivide and replace stub. */
+			//math::Vector3F d_pos_m = (pos_sp_s - pos_sp_old_s).edivide(_params.pos_p);
+			math::Vector3F d_pos_m(0.0f, 0.0f, 0.0f);
+			float d_pos_m_len = d_pos_m.Length();
+
+			if (d_pos_m_len > dt)
+			{
+				/* TODO:  Implement _params.pos_p */
+				//pos_sp_s = pos_sp_old_s + (d_pos_m / d_pos_m_len * dt).EMult(_params.pos_p);
+			}
+
+			/* Scale back */
+			/* TODO:  Implement edivide. */
+			//PositionSetpoint = pos_sp_s.edivide(scale);
+		}
+		else
+		{
+			/* We just have a current setpoint that we want to go to. */
+			PositionSetpoint = CurrentPositionSetpoint;
+
+			/* Set max velocity to cruise. */
+			VelMaxXY = cruising_speed[0];
+		}
+
+		/* Update yaw setpoint if needed. */
+		if (PositionSetpointTripletMsg.Current.YawspeedValid
+		    && PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_FOLLOW_TARGET)
+		{
+			VehicleAttitudeSetpointMsg.YawBody = VehicleAttitudeSetpointMsg.YawBody + PositionSetpointTripletMsg.Current.Yawspeed * dt;
+		}
+		else if (isfinite(PositionSetpointTripletMsg.Current.Yaw))
+		{
+			VehicleAttitudeSetpointMsg.YawBody = PositionSetpointTripletMsg.Current.Yaw;
+		}
+
+		/*
+		 * If we're already near the current takeoff setpoint don't reset in case we switch back to posctl.
+		 * this makes the takeoff finish smoothly.
+		 */
+		if ((PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_TAKEOFF
+		     || PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_LOITER)
+		    && PositionSetpointTripletMsg.Current.AcceptanceRadius > 0.0f
+		    /* Need to detect we're close a bit before the navigator switches from takeoff to next waypoint */
+		    && (Position - PositionSetpoint).Length() < PositionSetpointTripletMsg.Current.AcceptanceRadius * 1.2f)
+		{
+			DoResetAltPos = false;
+
+		}
+		else
+		{
+			/* Otherwise: in case of interrupted mission don't go to waypoint but stay at current position. */
+			DoResetAltPos = true;
+		}
+
+		/* Handle the landing gear based on the manual landing alt. */
+		const bool high_enough_for_landing_gear = (Position[2] < ConfigTblPtr->MIS_LTRMIN_ALT * 2.0f);
+
+		/* During a mission or in loiter it's safe to retract the landing gear. */
+		if ((PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_POSITION ||
+				PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_LOITER) &&
+		    !VehicleLandDetectedMsg.Landed &&
+		    high_enough_for_landing_gear)
+		{
+			VehicleAttitudeSetpointMsg.LandingGear = 1.0f;
+		}
+		else if (PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_TAKEOFF ||
+				PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_LAND ||
+			   !high_enough_for_landing_gear)
+		{
+			/* During takeoff and landing, we better put it down again. */
+			VehicleAttitudeSetpointMsg.LandingGear = -1.0f;
+		}
+		else
+		{
+			/* For the rest of the setpoint types, just leave it as is. */
+		}
+	}
+	else
+	{
+		/* Idle or triplet not valid, set velocity setpoint to zero */
+		VelocitySetpoint.Zero();
+		RunPosControl = false;
+		RunAltControl = false;
 	}
 }
 

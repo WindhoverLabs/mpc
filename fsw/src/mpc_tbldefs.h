@@ -585,6 +585,8 @@ typedef struct
     float MC_YAW_P;
 
     int32 VT_OPT_RECOV_EN;
+
+    float MIS_LTRMIN_ALT;
 } MPC_ConfigTbl_t;
 
 

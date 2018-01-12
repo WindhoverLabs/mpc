@@ -443,6 +443,8 @@ private:
     void ResetAltSetpoint(void);
     void ResetPosSetpoint(void);
     void ControlPosition(float dt);
+    void ControlOffboard(float dt);
+    void ControlAuto(float dt);
 
 public:
     /************************************************************************/
