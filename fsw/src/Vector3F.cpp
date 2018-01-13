@@ -67,8 +67,30 @@ Vector3F Vector3F::operator+(const Vector3F &vecIn)
 }
 
 
+// overload + operator to provide a vector addition
+Vector3F Vector3F::operator+(const Vector3F &vecIn) const
+{
+    Vector3F vecOut;
+    vecOut[0] = data[0] + vecIn[0];
+    vecOut[1] = data[1] + vecIn[1];
+    vecOut[2] = data[2] + vecIn[2];
+    return vecOut;
+}
+
+
 // overload - operator to provide a vector subtraction
 Vector3F Vector3F::operator-(const Vector3F &vecIn)
+{
+    Vector3F vecOut;
+    vecOut[0] = data[0] - vecIn[0];
+    vecOut[1] = data[1] - vecIn[1];
+    vecOut[2] = data[2] - vecIn[2];
+    return vecOut;
+}
+
+
+// overload - operator to provide a vector subtraction
+Vector3F Vector3F::operator-(const Vector3F &vecIn) const
 {
     Vector3F vecOut;
     vecOut[0] = data[0] - vecIn[0];
@@ -143,6 +165,19 @@ Vector3F Vector3F::EMult(const Vector3F &vecIn)
 	res[0] = data[0] * vecIn[0];
 	res[1] = data[1] * vecIn[1];
 	res[2] = data[2] * vecIn[2];
+
+	return res;
+}
+
+
+
+const Vector3F Vector3F::EDivide(const Vector3F &vecIn) const
+{
+	Vector3F res;
+
+	res[0] = data[0] / vecIn[0];
+	res[1] = data[1] / vecIn[1];
+	res[2] = data[2] / vecIn[2];
 
 	return res;
 }

@@ -151,6 +151,11 @@ int32 MPC::AcquireConfigPointers(void)
                                  iStatus);
     }
 
+    /* TODO:  Change this to only be called if/when a NEW table is loaded, not
+     * everytime we reacquire the table pointer.
+     */
+    UpdateParamsFromTable();
+
 MPC_AcquireConfigPointers_Exit_Tag:
     return iStatus;
 }

@@ -22,7 +22,9 @@ public:
 	float Length(void) const;
 	void Zero(void);
 	Vector3F operator+(const Vector3F &vecIn);
+	Vector3F operator+(const Vector3F &vecIn) const;
 	Vector3F operator-(const Vector3F &vecIn);
+	Vector3F operator-(const Vector3F &vecIn) const;
 	Vector3F operator%(const Vector3F &vecIn);
 	Vector3F operator*(const float scalar);
 	Vector3F operator/(const float scalar);
@@ -31,6 +33,7 @@ public:
 	Vector3F EMult(const Vector3F &vecIn);
 	void Constrain(uint32 i, float min, float max);
 	Vector3F Normalized(void);
+	const Vector3F EDivide(const Vector3F &v) const;
 
 protected:
 

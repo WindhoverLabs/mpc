@@ -131,7 +131,7 @@ public:
 	uint8 VXY_ResetCounter;
 	uint8 HeadingResetCounter;
 
-	math::Vector3F TrustInt;
+	math::Vector3F ThrustInt;
 
 	math::Vector3F Position;
 	math::Vector3F PositionSetpoint;
@@ -172,6 +172,13 @@ public:
 	Derivative VelXDeriv;
 	Derivative VelYDeriv;
 	Derivative VelZDeriv;
+
+	math::Vector3F PosP;
+	math::Vector3F VelP;
+	math::Vector3F VelI;
+	math::Vector3F VelD;
+
+	float VelocityMaxXY;  /**< Equal to vel_max except in auto mode when close to target. */
 
     /************************************************************************/
     /** \brief Multicopter Position Control (MPC) application entry point
@@ -445,6 +452,24 @@ private:
     void ControlPosition(float dt);
     void ControlOffboard(float dt);
     void ControlAuto(float dt);
+	void CalculateVelocitySetpoint(float dt);
+	void CalculateThrustSetpoint(float dt);
+	float GetCruisingSpeedXY(void);
+	bool CrossSphereLine(const math::Vector3F &sphere_c, const float sphere_r,
+			const math::Vector3F &line_a, const math::Vector3F &line_b, math::Vector3F &res);
+	void UpdateParamsFromTable(void);
+	void LimitAltitude(void);
+	void SlowLandGradualVelocityLimit(void);
+	bool InAutoTakeoff(void);
+
+
+	/*
+	 * Limit vel horizontally when close to target
+	 */
+	void LimitVelXYGradually(void);
+
+
+	void ApplyVelocitySetpointSlewRate(float dt);
 
 public:
     /************************************************************************/

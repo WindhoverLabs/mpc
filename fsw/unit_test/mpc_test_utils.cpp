@@ -45,16 +45,9 @@
 #include "ut_cfe_sb_stubs.h"
 #include "ut_cfe_es_stubs.h"
 #include "ut_cfe_evs_stubs.h"
+#include "mpc_test_tables.h"
 
 #include <time.h>
-
-/*
- * Config table for testing
- */
-MPC_ConfigTbl_t ConfigTbl = {
-        /* TODO:  Define table */
-		0
-};
 
 /*
  * Function Definitions
@@ -73,7 +66,7 @@ void MPC_Test_Setup(void)
     Ut_OSAPI_Reset();
     Ut_OSFILEAPI_Reset();
 
-    Ut_CFE_TBL_AddTable(MPC_CONFIG_TABLE_FILENAME, (void *) &ConfigTbl);
+    Ut_CFE_TBL_AddTable(MPC_CONFIG_TABLE_FILENAME, (void *) &MPC_NominalConfigTbl);
 }
 
 void MPC_Test_TearDown(void) {
