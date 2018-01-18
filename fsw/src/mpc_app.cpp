@@ -1045,6 +1045,7 @@ void MPC::Execute(void)
 	bool was_armed = false;
 	bool was_landed = true;
 
+
 	uint64 t = PX4LIB_GetPX4TimeUs();
 	float dt = t_prev != 0 ? (t - t_prev) / 1e6f : 0.004f;
 	t_prev = t;

@@ -15,6 +15,8 @@ add_airliner_app_def(mpc
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Matrix4F4.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Quaternion.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Quaternion.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector2F.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector2F.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector3F.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector3F.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/Vector4F.cpp

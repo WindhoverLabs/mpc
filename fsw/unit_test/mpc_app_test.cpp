@@ -641,6 +641,35 @@ void Test_MPC_AppMain_Nominal_ProcessVehicleLocalPositionMsg(void)
 }
 
 
+/**
+ * Test MPC_AppMain(), Nominal - ProcessControlStateMsg
+ */
+void Test_MPC_AppMain_Nominal_UpdateParamsFromTable(void)
+{
+    MPC oMPC;
+    int32 schPipe;
+
+    Ut_CFE_ES_SetReturnCode(UT_CFE_ES_RUNLOOP_INDEX, FALSE, 1);
+
+    /* Execute the function being tested */
+    oMPC.AppMain();
+
+    /* Verify results */
+    UtAssert_DoubleCmpAbs(oMPC.PosP[0], 0.950000, FLT_EPSILON, "oMPC.PosP[0]");
+    UtAssert_DoubleCmpAbs(oMPC.PosP[1], 0.950000, FLT_EPSILON, "oMPC.PosP[1]");
+    UtAssert_DoubleCmpAbs(oMPC.PosP[2], 1.000000, FLT_EPSILON, "oMPC.PosP[2]");
+    UtAssert_DoubleCmpAbs(oMPC.VelP[0], 0.150000, FLT_EPSILON, "oMPC.VelP[0]");
+    UtAssert_DoubleCmpAbs(oMPC.VelP[1], 0.150000, FLT_EPSILON, "oMPC.VelP[1]");
+    UtAssert_DoubleCmpAbs(oMPC.VelP[2], 0.600000, FLT_EPSILON, "oMPC.VelP[2]");
+    UtAssert_DoubleCmpAbs(oMPC.VelI[0], 0.200000, FLT_EPSILON, "oMPC.VelI[0]");
+    UtAssert_DoubleCmpAbs(oMPC.VelI[1], 0.200000, FLT_EPSILON, "oMPC.VelI[1]");
+    UtAssert_DoubleCmpAbs(oMPC.VelI[2], 0.150000, FLT_EPSILON, "oMPC.VelI[2]");
+    UtAssert_DoubleCmpAbs(oMPC.VelD[0], 0.010000, FLT_EPSILON, "oMPC.VelI[0]");
+    UtAssert_DoubleCmpAbs(oMPC.VelD[1], 0.010000, FLT_EPSILON, "oMPC.VelI[1]");
+    UtAssert_DoubleCmpAbs(oMPC.VelD[2], 0.000000, FLT_EPSILON, "oMPC.VelI[2]");
+}
+
+
 
 /**************************************************************************
  * Rollup Test Cases
@@ -696,6 +725,8 @@ void MPC_App_Test_AddTestCases(void)
     UtTest_Add(Test_MPC_AppMain_Nominal_ProcessVehicleLocalPositionMsg, MPC_Test_Setup, MPC_Test_TearDown,
                "Test_MPC_AppMain_Nominal_ProcessVehicleLocalPositionMsg");
 
+    UtTest_Add(Test_MPC_AppMain_Nominal_UpdateParamsFromTable, MPC_Test_Setup, MPC_Test_TearDown,
+               "Test_MPC_AppMain_Nominal_UpdateParamsFromTable");
 }
 
 
