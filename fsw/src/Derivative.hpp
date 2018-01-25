@@ -9,7 +9,7 @@ class Derivative
 public:
 	Derivative();
 	~Derivative();
-	float Update(float value, uint64 dt, float cutoff);
+	float Update(float value, float dt, float cutoff);
 
 private:
 	bool m_Initialized;

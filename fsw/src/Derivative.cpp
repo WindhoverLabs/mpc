@@ -18,11 +18,11 @@ Derivative::~Derivative()
 
 
 
-float Derivative::Update(float input, uint64 dt, float cutoff)
+float Derivative::Update(float input, float dt, float cutoff)
 {
 	float output = 0.0f;
 
-	m_LowPass.set_cutoff_frequency(dt, cutoff);
+	m_LowPass.set_cutoff_frequency(1.0/dt, cutoff);
 
 	if (m_Initialized)
 	{

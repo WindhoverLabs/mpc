@@ -398,7 +398,7 @@ public:
     void SendVehicleLocalPositionSetpointMsg(void);
 
 
-private:
+public:
     /************************************************************************/
     /** \brief Initialize the MPC configuration tables.
     **
@@ -436,6 +436,7 @@ private:
     *************************************************************************/
     int32  AcquireConfigPointers(void);
 
+public:
     void ProcessControlStateMsg(void);
     void ProcessVehicleLocalPositionMsg(void);
     void ProcessPositionSetpointTripletMsg(void);
@@ -489,6 +490,14 @@ public:
     **
     *************************************************************************/
     static int32  ValidateConfigTbl(void*);
+
+
+
+    void DisplayInputs(void);
+    void DisplayOutputs(void);
+    void DisplayMembers(void);
+    void SetInputs(void);
+    void SetMembers(void);
 };
 
 #ifdef __cplusplus
