@@ -86,6 +86,8 @@ add_airliner_app_unit_test(mpc-ut
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/LowPassFilter2p.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/mathlib/math/Expo.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/mathlib/math/Expo.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/mathlib/math/Limits.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/mathlib/math/Limits.hpp
                 
     INCLUDES
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/

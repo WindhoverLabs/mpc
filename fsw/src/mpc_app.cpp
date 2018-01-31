@@ -1315,8 +1315,8 @@ void MPC::GenerateAttitudeSetpoint(float dt)
 		/* Do not move yaw while sitting on the ground. */
 
 		/* We want to know the real constraint, and global overrides manual. */
-		const float yaw_rate_max = (ConfigTblPtr->MAN_Y_MAX < ConfigTblPtr->MC_YAWRATE_MAX) ? ConfigTblPtr->MAN_Y_MAX :
-				ConfigTblPtr->MC_YAWRATE_MAX;
+		const float yaw_rate_max = (math::radians(ConfigTblPtr->MAN_Y_MAX) < math::radians(ConfigTblPtr->MC_YAWRATE_MAX)) ? math::radians(ConfigTblPtr->MAN_Y_MAX) :
+				math::radians(ConfigTblPtr->MC_YAWRATE_MAX);
 		const float yaw_offset_max = yaw_rate_max / ConfigTblPtr->MC_YAW_P;
 
 		VehicleAttitudeSetpointMsg.YawSpMoveRate = ManualControlSetpointMsg.R * yaw_rate_max;
@@ -1351,8 +1351,8 @@ void MPC::GenerateAttitudeSetpoint(float dt)
 	/* Control roll and pitch directly if no aiding velocity controller is active. */
 	if (!VehicleControlModeMsg.ControlVelocityEnabled)
 	{
-		VehicleAttitudeSetpointMsg.RollBody = ManualControlSetpointMsg.Y * ConfigTblPtr->MAN_TILT_MAX;
-		VehicleAttitudeSetpointMsg.PitchBody = -ManualControlSetpointMsg.X * ConfigTblPtr->MAN_TILT_MAX;
+		VehicleAttitudeSetpointMsg.RollBody = ManualControlSetpointMsg.Y * math::radians(ConfigTblPtr->MAN_TILT_MAX);
+		VehicleAttitudeSetpointMsg.PitchBody = -ManualControlSetpointMsg.X * math::radians(ConfigTblPtr->MAN_TILT_MAX);
 
 		/* Only if optimal recovery is not used, modify roll/pitch. */
 		if (ConfigTblPtr->VT_OPT_RECOV_EN <= 0)
@@ -2370,7 +2370,7 @@ void MPC::CalculateThrustSetpoint(float dt)
 		thr_min = 0.0f;
 	}
 
-	float tilt_max = ConfigTblPtr->TILTMAX_AIR;
+	float tilt_max = math::radians(ConfigTblPtr->TILTMAX_AIR);
 	float thr_max = ConfigTblPtr->THR_MAX;
 
 	/* Filter vel_z over 1/8sec */
@@ -2391,7 +2391,7 @@ void MPC::CalculateThrustSetpoint(float dt)
 			PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_LAND)
 	{
 		/* Adjust limits for landing mode.  Limit max tilt and min lift when landing. */
-		tilt_max = ConfigTblPtr->TILTMAX_LND;
+		tilt_max = math::radians(ConfigTblPtr->TILTMAX_LND);
 
 		if (thr_min < 0.0f)
 		{
@@ -2609,7 +2609,7 @@ void MPC::CalculateThrustSetpoint(float dt)
 				body_x = -body_x;
 			}
 
-			body_x.Normalized();
+			body_x.Normalize();
 		}
 		else
 		{
@@ -2691,7 +2691,7 @@ bool MPC::CrossSphereLine(const math::Vector3F &sphere_c, const float sphere_r,
 
 	/* Project center of sphere on line normalized AB. */
 	math::Vector3F ab_norm = line_b - line_a;
-	ab_norm.Normalized();
+	ab_norm.Normalize();
 	math::Vector3F d = line_a + ab_norm * ((sphere_c - line_a) * ab_norm);
 	float cd_len = (sphere_c - d).Length();
 

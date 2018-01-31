@@ -210,3 +210,14 @@ Vector3F Vector3F::Normalized(void)
 	return res;
 }
 
+
+
+void Vector3F::Normalize(void)
+{
+	float mag = Length();
+
+	data[0] = data[0] / mag;
+	data[1] = data[1] / mag;
+	data[2] = data[2] / mag;
+}
+
