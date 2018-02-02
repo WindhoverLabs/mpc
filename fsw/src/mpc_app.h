@@ -494,14 +494,6 @@ public:
     **
     *************************************************************************/
     static int32  ValidateConfigTbl(void*);
-
-
-
-    void DisplayInputs(void);
-    void DisplayOutputs(void);
-    void DisplayMembers(void);
-    void SetInputs(void);
-    void SetMembers(void);
 };
 
 #ifdef __cplusplus

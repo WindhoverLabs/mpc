@@ -250,6 +250,20 @@ typedef enum {
 */
 	MPC_CFGTBL_LOAD_ERR_EID,
 
+	/** \brief <tt> 'Unknown velocity offboard coordinate frame. (%u)' </tt>
+	**  \event <tt> 'Unknown velocity offboard coordinate frame. (%u)' </tt>
+	**
+	**  \par Type: ERROR
+	**
+	**  \par Cause:
+	**
+	**  This event message is issued when the software receives a current
+	**  position setpoint with an unknown velocity frame.  The actual
+	**  enumeration received is presented in parenthesis.
+	**
+	*/
+	MPC_UNK_VEL_FRM_ERR_EID,
+
 /** \brief <tt> This is a count of all the app events and should not be used. </tt> */
 	MPC_EVT_CNT
 } MPC_EventIds_t;
