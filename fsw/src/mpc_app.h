@@ -180,6 +180,10 @@ public:
 
 	float VelocityMaxXY;  /**< Equal to vel_max except in auto mode when close to target. */
 
+
+	bool WasArmed;
+	bool WasLanded;
+
     /************************************************************************/
     /** \brief Multicopter Position Control (MPC) application entry point
      **

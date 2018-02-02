@@ -313,6 +313,12 @@ void MPC::InitData()
 	LimitVelXY = false;
 
 	GearStateInitialized = false;
+
+	/* Let's be safe and have the landing gear down by default. */
+	VehicleAttitudeSetpointMsg.LandingGear = -1.0f;
+
+	WasArmed = false;
+	WasLanded = true;
 }
 
 
@@ -1042,8 +1048,6 @@ void MPC::ProcessPositionSetpointTripletMsg(void)
 void MPC::Execute(void)
 {
 	static uint64 t_prev = 0;
-	bool was_armed = false;
-	bool was_landed = true;
 
 	uint64 t = PX4LIB_GetPX4TimeUs();
 	float dt = t_prev != 0 ? (t - t_prev) / 1e6f : 0.004f;
@@ -1052,8 +1056,8 @@ void MPC::Execute(void)
 	/* Set default max velocity in xy to vel_max */
 	VelMaxXY = ConfigTblPtr->XY_VEL_MAX;
 
-	if (VehicleControlModeMsg.Armed && !was_armed) {
-		/* reset setpoints and integrals on arming */
+	if (VehicleControlModeMsg.Armed && !WasArmed) {
+		/* Reset setpoints and integrals on arming. */
 		ResetPositionSetpoint = true;
 		ResetAltitudeSetpoint = true;
 		DoResetAltPos = true;
@@ -1064,20 +1068,22 @@ void MPC::Execute(void)
 		YawTakeoff = Yaw;
 	}
 
+	WasArmed = VehicleControlModeMsg.Armed;
+
 	/* Switch to smooth takeoff if we got out of landed state */
-	if (!VehicleLandDetectedMsg.Landed && was_landed)
+	if (!VehicleLandDetectedMsg.Landed && WasLanded)
 	{
 		InTakeoff = true;
 		TakeoffVelLimit = -0.5f;
 	}
 
 	/* Set triplets to invalid if we just landed */
-	if (VehicleLandDetectedMsg.Landed && !was_landed)
+	if (VehicleLandDetectedMsg.Landed && !WasLanded)
 	{
 		PositionSetpointTripletMsg.Current.Valid = false;
 	}
 
-	was_landed = VehicleLandDetectedMsg.Landed;
+	WasLanded = VehicleLandDetectedMsg.Landed;
 
 	UpdateRef();
 
@@ -1166,8 +1172,6 @@ void MPC::Execute(void)
 	 * throttle after manual throttle control */
 	ResetIntZManual = VehicleControlModeMsg.Armed && VehicleControlModeMsg.ControlManualEnabled
 			      && !VehicleControlModeMsg.ControlClimbRateEnabled;
-
-
 }
 
 
@@ -2854,7 +2858,7 @@ void MPC::ApplyVelocitySetpointSlewRate(float dt)
 	/* Adapt slew rate if we are decelerating */
 	if (Velocity * acc < 0)
 	{
-		acc_limit = ConfigTblPtr->ACC_HOR_MAX;
+		acc_limit = ConfigTblPtr->DEC_HOR_MAX;
 	}
 
 	/* Limit total horizontal acceleration */
