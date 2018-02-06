@@ -21,7 +21,7 @@ int signf(float val)
 {
 	int result;
 
-	if(val < 0.0f)
+	if(val > 0.0f)
 	{
 		result = 1;
 	}
