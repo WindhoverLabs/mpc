@@ -8,16 +8,15 @@
 #include "mpc_app.h"
 #include "mpc_msg.h"
 #include "mpc_version.h"
-#include "Quaternion.hpp"
-#include "Matrix3F3.hpp"
-#include "Vector2F.hpp"
-#include "Quaternion.hpp"
+#include "math/Matrix3F3.hpp"
+#include "math/Vector2F.hpp"
+#include "math/Quaternion.hpp"
 #include <float.h>
 #include <math.h>
-#include "lib/px4lib.h"
+#include "px4lib.h"
 #include "geo/geo.h"
-#include "lib/mathlib/math/Expo.hpp"
-#include "lib/mathlib/math/Limits.hpp"
+#include "math/Expo.hpp"
+#include "math/Limits.hpp"
 
 #define nan FP_NAN
 

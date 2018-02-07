@@ -48,8 +48,8 @@
 #include "ut_cfe_tbl_stubs.h"
 #include "ut_cfe_fs_stubs.h"
 #include "ut_cfe_time_stubs.h"
-#include "Quaternion.hpp"
-#include "Matrix3F3.hpp"
+#include "math/Quaternion.hpp"
+#include "math/Matrix3F3.hpp"
 #include <float.h>
 #include "stubs/ut_mpc_custom_stubs.h"
 

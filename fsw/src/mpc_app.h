@@ -55,9 +55,9 @@ extern "C" {
 #include "mpc_events.h"
 #include "mpc_tbldefs.h"
 #include "px4_msgs.h"
-#include "Matrix3F3.hpp"
+#include "math/Matrix3F3.hpp"
 #include "geo/geo.h"
-#include "Derivative.hpp"
+#include "math/Derivative.hpp"
 
 /************************************************************************
  ** Local Defines
