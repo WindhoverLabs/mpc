@@ -4360,15 +4360,15 @@ void Test_MPC_AppMain_Nominal_ControlManual(void)
     UtAssert_DoubleCmpAbs(oMPC.CurrentPositionSetpoint[0], 0.000000000000, FLT_EPSILON, "oMPC.CurrentPositionSetpoint[0]");
     UtAssert_DoubleCmpAbs(oMPC.CurrentPositionSetpoint[1], 0.000000000000, FLT_EPSILON, "oMPC.CurrentPositionSetpoint[1]");
     UtAssert_DoubleCmpAbs(oMPC.CurrentPositionSetpoint[2], 0.000000000000, FLT_EPSILON, "oMPC.CurrentPositionSetpoint[2]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[0][0],  0.00361134741, FLT_EPSILON, "oMPC.RSetpoint[0][0]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[0][1], -0.99990046, FLT_EPSILON, "oMPC.RSetpoint[0][1]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[0][2], -0.0136348782, FLT_EPSILON, "oMPC.RSetpoint[0][2]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[1][0],  0.999650598, FLT_EPSILON, "oMPC.RSetpoint[1][0]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[1][1],  0.00396678038, FLT_EPSILON, "oMPC.RSetpoint[1][1]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[1][2], -0.0261315368, FLT_EPSILON, "oMPC.RSetpoint[1][2]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[2][0],  0.0261830259, FLT_EPSILON, "oMPC.RSetpoint[2][0]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[2][1], -0.0135357445, FLT_EPSILON, "oMPC.RSetpoint[2][1]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[2][2],  0.999565482, FLT_EPSILON, "oMPC.RSetpoint[2][2]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[0][0],  0.003611347405, FLT_EPSILON, "oMPC.RSetpoint[0][0]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[0][1], -0.999900460243, FLT_EPSILON, "oMPC.RSetpoint[0][1]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[0][2], -0.013634878211, FLT_EPSILON, "oMPC.RSetpoint[0][2]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[1][0],  0.999650597572, FLT_EPSILON, "oMPC.RSetpoint[1][0]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[1][1],  0.003966780379, FLT_EPSILON, "oMPC.RSetpoint[1][1]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[1][2], -0.026131536812, FLT_EPSILON, "oMPC.RSetpoint[1][2]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[2][0],  0.026183025911, FLT_EPSILON, "oMPC.RSetpoint[2][0]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[2][1], -0.013535744511, FLT_EPSILON, "oMPC.RSetpoint[2][1]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[2][2],  0.999565482140, FLT_EPSILON, "oMPC.RSetpoint[2][2]");
 }
 
 

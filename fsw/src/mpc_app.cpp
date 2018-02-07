@@ -758,24 +758,27 @@ void MPC::ProcessVehicleLocalPositionMsg(void)
 	{
 		if (Z_ResetCounter != VehicleLocalPositionMsg.Z_ResetCounter)
 		{
-			PositionSetpoint[2] += VehicleLocalPositionMsg.Delta_Z;
+			PositionSetpoint[2] = PositionSetpoint[2] + VehicleLocalPositionMsg.Delta_Z;
 		}
 
-		if (XY_ResetCounter != VehicleLocalPositionMsg.XY_ResetCounter) {
-			PositionSetpoint[0] += VehicleLocalPositionMsg.Delta_XY[0];
-			PositionSetpoint[1] += VehicleLocalPositionMsg.Delta_XY[1];
+		if (XY_ResetCounter != VehicleLocalPositionMsg.XY_ResetCounter)
+		{
+			PositionSetpoint[0] = PositionSetpoint[0] + VehicleLocalPositionMsg.Delta_XY[0];
+			PositionSetpoint[1] = PositionSetpoint[1] + VehicleLocalPositionMsg.Delta_XY[1];
 		}
 
-		if (VZ_ResetCounter != VehicleLocalPositionMsg.VZ_ResetCounter) {
-			VelocitySetpoint[2] += VehicleLocalPositionMsg.Delta_VZ;
-			VelocitySetpointPrevious[2] +=  VehicleLocalPositionMsg.Delta_VZ;
+		if (VZ_ResetCounter != VehicleLocalPositionMsg.VZ_ResetCounter)
+		{
+			VelocitySetpoint[2] = VelocitySetpoint[2] + VehicleLocalPositionMsg.Delta_VZ;
+			VelocitySetpointPrevious[2] =  VelocitySetpointPrevious[2] + VehicleLocalPositionMsg.Delta_VZ;
 		}
 
-		if (VXY_ResetCounter != VehicleLocalPositionMsg.VXY_ResetCounter) {
-			VelocitySetpoint[0] += VehicleLocalPositionMsg.Delta_VXY[0];
-			VelocitySetpoint[1] += VehicleLocalPositionMsg.Delta_VXY[1];
-			VelocitySetpointPrevious[0] += VehicleLocalPositionMsg.Delta_VXY[0];
-			VelocitySetpointPrevious[1] += VehicleLocalPositionMsg.Delta_VXY[1];
+		if (VXY_ResetCounter != VehicleLocalPositionMsg.VXY_ResetCounter)
+		{
+			VelocitySetpoint[0] = VelocitySetpoint[0] + VehicleLocalPositionMsg.Delta_VXY[0];
+			VelocitySetpoint[1] = VelocitySetpoint[1] + VehicleLocalPositionMsg.Delta_VXY[1];
+			VelocitySetpointPrevious[0] = VelocitySetpointPrevious[0] + VehicleLocalPositionMsg.Delta_VXY[0];
+			VelocitySetpointPrevious[1] = VelocitySetpointPrevious[1] + VehicleLocalPositionMsg.Delta_VXY[1];
 		}
 	}
 
@@ -962,10 +965,9 @@ void MPC::UpdateRef(void)
 			 * adjusts the position setpoint to keep the vehicle in its
 			 * current local position. It would only change its global
 			 * position on the next setpoint update. */
-			map_projection_project(&RefPos, LatitudeSetpoint, LongitudeSetpoint, &PositionSetpoint[0], &PositionSetpoint[1]);
+			//map_projection_project(&RefPos, LatitudeSetpoint, LongitudeSetpoint, &PositionSetpoint[0], &PositionSetpoint[1]);
 			PositionSetpoint[2] = -(AltitudeSetpoint - RefAlt);
 		}
-
 		RefTimestamp = VehicleLocalPositionMsg.RefTimestamp;
 	}
 }

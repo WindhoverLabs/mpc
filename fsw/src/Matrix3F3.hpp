@@ -5,7 +5,7 @@
 #include "Matrix3F3.hpp"
 #include "Vector3F.hpp"
 
-#define M_DEG_TO_RAD_F		0.0174532925f
+#define M_DEG_TO_RAD_F		(0.01745329251994329576f)
 
 namespace math
 {
