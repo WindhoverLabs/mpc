@@ -964,7 +964,7 @@ void MPC::UpdateRef(void)
 			 * adjusts the position setpoint to keep the vehicle in its
 			 * current local position. It would only change its global
 			 * position on the next setpoint update. */
-			map_projection_project(&RefPos, LatitudeSetpoint, LongitudeSetpoint, &PositionSetpoint[0], &PositionSetpoint[1]);
+			//map_projection_project(&RefPos, LatitudeSetpoint, LongitudeSetpoint, &PositionSetpoint[0], &PositionSetpoint[1]);
 			PositionSetpoint[2] = -(AltitudeSetpoint - RefAlt);
 		}
 		RefTimestamp = VehicleLocalPositionMsg.RefTimestamp;
