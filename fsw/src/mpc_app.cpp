@@ -428,6 +428,8 @@ int32 MPC::RcvSchPipeMsg(int32 iBlocking)
 
             case PX4_VEHICLE_CONTROL_MODE_MID:
                 memcpy(&VehicleControlModeMsg, MsgPtr, sizeof(VehicleControlModeMsg));
+//                OS_printf("%d\n",VehicleControlModeMsg.ControlPositionEnabled);
+//                OS_printf("%d\n",VehicleControlModeMsg.ControlVelocityEnabled);
                 break;
 
             case PX4_POSITION_SETPOINT_TRIPLET_MID:
