@@ -4278,15 +4278,15 @@ void Test_MPC_AppMain_Nominal_ControlManual(void)
 
     oMPC.ControlManual(0.148974999785);
 
-    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.RollBody, -0.013540800661, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.RollBody");
-    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.PitchBody, -0.026186019182, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.PitchBody");
+    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.RollBody, -0.0069380007, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.RollBody");
+    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.PitchBody, -0.0134153878, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.PitchBody");
     UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.YawBody, 1.567183732986, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.YawBody");
     UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.YawSpMoveRate, 0.000000000000, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.YawSpMoveRate");
-    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.Q_D[0],  0.708368480206, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.Q_D[0]");
-    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.Q_D[1],  0.004445353057, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.Q_D[1]");
-    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.Q_D[2], -0.014052679762, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.Q_D[2]");
-    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.Q_D[3],  0.705688893795, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.Q_D[3]");
-    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.Thrust,  0.420230060816, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.Thrust");
+    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.Q_D[0],  0.7083790898, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.Q_D[0]");
+    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.Q_D[1],  0.0022770965, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.Q_D[1]");
+    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.Q_D[2], -0.0072000101, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.Q_D[2]");
+    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.Q_D[3],  0.7057917714, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.Q_D[3]");
+    UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.Thrust,  0.8200920820, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.Thrust");
     UtAssert_DoubleCmpAbs(oMPC.VehicleAttitudeSetpointMsg.LandingGear, -1.000000000000, FLT_EPSILON, "oMPC.VehicleAttitudeSetpoint.LandingGear");
     UtAssert_True(oMPC.VehicleAttitudeSetpointMsg.Q_D_Valid == 1, "oMPC.VehicleAttitudeSetpoint.Q_D_Valid");
     UtAssert_True(oMPC.VehicleAttitudeSetpointMsg.RollResetIntegral == 0, "oMPC.VehicleAttitudeSetpoint.RollResetIntegral");
@@ -4304,10 +4304,10 @@ void Test_MPC_AppMain_Nominal_ControlManual(void)
     UtAssert_DoubleCmpAbs(oMPC.VehicleLocalPositionSetpointMsg.VZ, -0.047619022429, FLT_EPSILON, "MPC.VehicleLocalPositionSetpointMsg.VZ");
     UtAssert_DoubleCmpAbs(oMPC.VehicleLocalPositionSetpointMsg.AccX,  0.056190323085, FLT_EPSILON, "MPC.VehicleLocalPositionSetpointMsg.AccX");
     UtAssert_DoubleCmpAbs(oMPC.VehicleLocalPositionSetpointMsg.AccY,  0.107689961791, FLT_EPSILON, "MPC.VehicleLocalPositionSetpointMsg.AccY");
-    UtAssert_DoubleCmpAbs(oMPC.VehicleLocalPositionSetpointMsg.AccZ, -4.119281768799, FLT_EPSILON, "MPC.VehicleLocalPositionSetpointMsg.AccZ");
+    UtAssert_DoubleCmpAbs(oMPC.VehicleLocalPositionSetpointMsg.AccZ, -8.0419425964, FLT_EPSILON, "MPC.VehicleLocalPositionSetpointMsg.AccZ");
     UtAssert_DoubleCmpAbs(oMPC.VehicleGlobalVelocitySetpointMsg.VX, -0.022075140849, FLT_EPSILON, "MPC.VehicleGlobalVelocitySetpointMsg.VX");
     UtAssert_DoubleCmpAbs(oMPC.VehicleGlobalVelocitySetpointMsg.VY,  0.007811224554, FLT_EPSILON, "MPC.VehicleGlobalVelocitySetpointMsg.VY");
-    UtAssert_DoubleCmpAbs(oMPC.VehicleGlobalVelocitySetpointMsg.VZ, -0.047619022429, FLT_EPSILON, "MPC.VehicleGlobalVelocitySetpointMsg.VZ");
+    UtAssert_DoubleCmpAbs(oMPC.VehicleGlobalVelocitySetpointMsg.VZ, -0.7142857313, FLT_EPSILON, "MPC.VehicleGlobalVelocitySetpointMsg.VZ");
     UtAssert_True(oMPC.GearStateInitialized == 0, "oMPC.GearStateInitialized");
     UtAssert_DoubleCmpAbs(oMPC.RefAlt, 504.262969970703, FLT_EPSILON, "oMPC.RefAlt");
     UtAssert_DoubleCmpAbs(oMPC.RefPos.lat_rad, 0.827246655434, FLT_EPSILON, "oMPC.LatRad");
@@ -4332,7 +4332,7 @@ void Test_MPC_AppMain_Nominal_ControlManual(void)
     UtAssert_True(oMPC.LimitVelXY == 0, "oMPC.LimitVelXY");
     UtAssert_DoubleCmpAbs(oMPC.ThrustInt[0], 0.005225665867, FLT_EPSILON, "oMPC.ThrustInt[0]");
     UtAssert_DoubleCmpAbs(oMPC.ThrustInt[1], 0.010751139373, FLT_EPSILON, "oMPC.ThrustInt[1]");
-    UtAssert_DoubleCmpAbs(oMPC.ThrustInt[2], 0.077744051814, FLT_EPSILON, "oMPC.ThrustInt[2]");
+    UtAssert_DoubleCmpAbs(oMPC.ThrustInt[2], 0.0628465563, FLT_EPSILON, "oMPC.ThrustInt[2]");
     UtAssert_DoubleCmpAbs(oMPC.Position[0], -1.995731592178, FLT_EPSILON, "oMPC.Position[0]");
     UtAssert_DoubleCmpAbs(oMPC.Position[1],  1.565559029579, FLT_EPSILON, "oMPC.Position[1]");
     UtAssert_DoubleCmpAbs(oMPC.Position[2], -0.826584398746, FLT_EPSILON, "oMPC.Position[2]");
@@ -4344,7 +4344,7 @@ void Test_MPC_AppMain_Nominal_ControlManual(void)
     UtAssert_DoubleCmpAbs(oMPC.Velocity[2], -0.051438082010, FLT_EPSILON, "oMPC.Velocity[2]");
     UtAssert_DoubleCmpAbs(oMPC.VelocitySetpoint[0], -0.022075140849, FLT_EPSILON, "oMPC.VelocitySetpoint[0]");
     UtAssert_DoubleCmpAbs(oMPC.VelocitySetpoint[1],  0.007811224554, FLT_EPSILON, "oMPC.VelocitySetpoint[1]");
-    UtAssert_DoubleCmpAbs(oMPC.VelocitySetpoint[2], -0.047619022429, FLT_EPSILON, "oMPC.VelocitySetpoint[2]");
+    UtAssert_DoubleCmpAbs(oMPC.VelocitySetpoint[2], -0.7142857313, FLT_EPSILON, "oMPC.VelocitySetpoint[2]");
     UtAssert_DoubleCmpAbs(oMPC.VelocityPrevious[0], -0.030311975628, FLT_EPSILON, "oMPC.VelocityPrevious[0]");
     UtAssert_DoubleCmpAbs(oMPC.VelocityPrevious[1],  0.008536919951, FLT_EPSILON, "oMPC.VelocityPrevious[1]");
     UtAssert_DoubleCmpAbs(oMPC.VelocityPrevious[2], -0.017990816385, FLT_EPSILON, "oMPC.VelocityPrevious[2]");
@@ -4353,22 +4353,22 @@ void Test_MPC_AppMain_Nominal_ControlManual(void)
     UtAssert_DoubleCmpAbs(oMPC.VelocityFF[2], 0.000000000000, FLT_EPSILON, "oMPC.VelocityFF[2]");
     UtAssert_DoubleCmpAbs(oMPC.VelocitySetpointPrevious[0], -0.022075140849, FLT_EPSILON, "oMPC.VelocitySetpointPrevious[0]");
     UtAssert_DoubleCmpAbs(oMPC.VelocitySetpointPrevious[1],  0.007811224554, FLT_EPSILON, "oMPC.VelocitySetpointPrevious[1]");
-    UtAssert_DoubleCmpAbs(oMPC.VelocitySetpointPrevious[2], -0.047619022429, FLT_EPSILON, "oMPC.VelocitySetpointPrevious[2]");
+    UtAssert_DoubleCmpAbs(oMPC.VelocitySetpointPrevious[2], -0.7142857313, FLT_EPSILON, "oMPC.VelocitySetpointPrevious[2]");
     UtAssert_DoubleCmpAbs(oMPC.VelocityErrD[0], -0.014930430800, FLT_EPSILON, "oMPC.VelocityErrD[0]");
     UtAssert_DoubleCmpAbs(oMPC.VelocityErrD[1],  0.010728724301, FLT_EPSILON, "oMPC.VelocityErrD[1]");
     UtAssert_DoubleCmpAbs(oMPC.VelocityErrD[2],  0.159829705954, FLT_EPSILON, "oMPC.VelocityErrD[2]");
     UtAssert_DoubleCmpAbs(oMPC.CurrentPositionSetpoint[0], 0.000000000000, FLT_EPSILON, "oMPC.CurrentPositionSetpoint[0]");
     UtAssert_DoubleCmpAbs(oMPC.CurrentPositionSetpoint[1], 0.000000000000, FLT_EPSILON, "oMPC.CurrentPositionSetpoint[1]");
     UtAssert_DoubleCmpAbs(oMPC.CurrentPositionSetpoint[2], 0.000000000000, FLT_EPSILON, "oMPC.CurrentPositionSetpoint[2]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[0][0],  0.003611347405, FLT_EPSILON, "oMPC.RSetpoint[0][0]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[0][1], -0.999900460243, FLT_EPSILON, "oMPC.RSetpoint[0][1]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[0][2], -0.013634878211, FLT_EPSILON, "oMPC.RSetpoint[0][2]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[1][0],  0.999650597572, FLT_EPSILON, "oMPC.RSetpoint[1][0]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[1][1],  0.003966780379, FLT_EPSILON, "oMPC.RSetpoint[1][1]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[1][2], -0.026131536812, FLT_EPSILON, "oMPC.RSetpoint[1][2]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[2][0],  0.026183025911, FLT_EPSILON, "oMPC.RSetpoint[2][0]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[2][1], -0.013535744511, FLT_EPSILON, "oMPC.RSetpoint[2][1]");
-    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[2][2],  0.999565482140, FLT_EPSILON, "oMPC.RSetpoint[2][2]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[0][0],  0.0036122610, FLT_EPSILON, "oMPC.RSetpoint[0][0]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[0][1], -0.9999690652, FLT_EPSILON, "oMPC.RSetpoint[0][1]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[0][2], -0.0069863610, FLT_EPSILON, "oMPC.RSetpoint[0][2]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[1][0],  0.9999035001, FLT_EPSILON, "oMPC.RSetpoint[1][0]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[1][1],  0.0037055709, FLT_EPSILON, "oMPC.RSetpoint[1][1]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[1][2], -0.0133895101, FLT_EPSILON, "oMPC.RSetpoint[1][2]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[2][0],  0.0134149855, FLT_EPSILON, "oMPC.RSetpoint[2][0]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[2][1], -0.0069373203, FLT_EPSILON, "oMPC.RSetpoint[2][1]");
+    UtAssert_DoubleCmpAbs(oMPC.RSetpoint[2][2],  0.9998859167, FLT_EPSILON, "oMPC.RSetpoint[2][2]");
 }
 
 
