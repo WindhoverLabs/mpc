@@ -2021,7 +2021,7 @@ void MPC::CalculateVelocitySetpoint(float dt)
 	{
 		InTakeoff = TakeoffVelLimit < -VelocitySetpoint[2];
 		/* Ramp vertical velocity limit up to takeoff speed. */
-		TakeoffVelLimit += ConfigTblPtr->TKO_SPEED * dt / ConfigTblPtr->TKO_RAMP_T;
+		TakeoffVelLimit += -VelocitySetpoint[2] * dt / ConfigTblPtr->TKO_RAMP_T;
 		/* Limit vertical velocity to the current ramp value. */
 		VelocitySetpoint[2] = math::max(VelocitySetpoint[2], -TakeoffVelLimit);
 	}
