@@ -1953,9 +1953,9 @@ void MPC::CalculateVelocitySetpoint(float dt)
 		}
 
     	/* Constrain xy velocities to defined limits after position scaling */
-	    float vel_mag = (ConfigTblPtr->XY_CRUISE < VelMaxXY) ? ConfigTblPtr->XY_CRUISE : VelMaxXY;
+        float vel_mag = (ConfigTblPtr->XY_CRUISE < VelMaxXY) ? ConfigTblPtr->XY_CRUISE : VelMaxXY;
         float vel_norm_xy = sqrtf(VelocitySetpoint[0] * VelocitySetpoint[0] +
-			VelocitySetpoint[1] * VelocitySetpoint[1]);
+		                          VelocitySetpoint[1] * VelocitySetpoint[1]);
 
         if (vel_norm_xy > vel_mag)
         {
