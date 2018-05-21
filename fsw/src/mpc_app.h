@@ -58,10 +58,18 @@ extern "C" {
 #include "math/Matrix3F3.hpp"
 #include "geo/geo.h"
 #include "math/Derivative.hpp"
+#include "math/Vector2F.hpp"
 
 /************************************************************************
  ** Local Defines
  *************************************************************************/
+enum manual_stick_input {
+	brake,
+	direction_change,
+	acceleration,
+	deceleration
+};
+
 
 /************************************************************************
  ** Local Structure Definitions
@@ -183,6 +191,18 @@ public:
 
 	bool WasArmed;
 	bool WasLanded;
+
+	// NEW
+	boolean RefAltIsGlobal; /** true when the reference altitude is defined in a global reference frame */
+	manual_stick_input _user_intention_xy; /**< defines what the user intends to do derived from the stick input */
+	manual_stick_input _user_intention_z; /**< defines what the user intends to do derived from the stick input in z direciton */
+	math::Vector2F _stick_input_xy_prev; /**< for manual controlled mode to detect direction change */
+	float _vel_max_xy;  /**< equal to vel_max except in auto mode when close to target */
+	float _acceleration_state_dependent_xy; /**< acceleration limit applied in manual mode */
+	float _acceleration_state_dependent_z; /**< acceleration limit applied in manual mode in z */
+	float _manual_jerk_limit_xy; /**< jerk limit in manual mode dependent on stick input */
+	float _manual_jerk_limit_z; /**< jerk limit in manual mode in z */
+	float _z_derivative; /**< velocity in z that agrees with position rate */
 
     /************************************************************************/
     /** \brief Multicopter Position Control (MPC) application entry point
@@ -466,15 +486,17 @@ public:
 	void LimitAltitude(void);
 	void SlowLandGradualVelocityLimit(void);
 	bool InAutoTakeoff(void);
-
-
 	/*
 	 * Limit vel horizontally when close to target
 	 */
 	void LimitVelXYGradually(void);
-
-
 	void ApplyVelocitySetpointSlewRate(float dt);
+
+	// NEW
+	float GetVelClose(const math::Vector2F &unit_prev_to_current,
+			const math::Vector2F &unit_current_to_next);
+	void SetManualAccelerationZ(float &max_acceleration, const float stick_z, const float dt);
+	void SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt);
 
 public:
     /************************************************************************/

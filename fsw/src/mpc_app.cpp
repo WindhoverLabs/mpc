@@ -9,7 +9,6 @@
 #include "mpc_msg.h"
 #include "mpc_version.h"
 #include "math/Matrix3F3.hpp"
-#include "math/Vector2F.hpp"
 #include "math/Quaternion.hpp"
 #include <float.h>
 #include <math.h>
@@ -20,14 +19,14 @@
 
 #define nan FP_NAN
 
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*                                                                 */
 /* Local definitions                                               */
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 #define MPC_CONSTANTS_ONE_G    9.80665f   /* m/s^2		*/
-
+#define SIGMA_SINGLE_OP        0.000001f
+#define SIGMA_NORM             0.001f
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*                                                                 */
@@ -35,8 +34,6 @@
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 MPC oMPC;
-
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*                                                                 */
@@ -47,7 +44,6 @@ MPC::MPC()
 {
 
 }
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*                                                                 */
@@ -936,42 +932,44 @@ void MPC::Execute(void)
 
 void MPC::UpdateRef(void)
 {
-    
-    if(VehicleStatusMsg.ArmingState == PX4_ARMING_STATE_STANDBY)
-    {
-	    if (VehicleLocalPositionMsg.RefTimestamp != RefTimestamp)
-	    {
-		    double LatitudeSetpoint;
-    		double LongitudeSetpoint;
-	    	float AltitudeSetpoint = 0.0f;
-		    uint64 currentTime;
+	/* The reference point is only allowed to change when the vehicle is in standby state which is the
+	normal state when the estimator origin is set. Changing reference point in flight causes large controller
+	setpoint changes. Changing reference point in other arming states is untested and shoud not be performed. */
+	if ((VehicleLocalPositionMsg.RefTimestamp != RefTimestamp)
+	    && ((VehicleStatusMsg.ArmingState == PX4_ARMING_STATE_STANDBY)
+		|| (!RefAltIsGlobal && VehicleLocalPositionMsg.Z_Global)))
+	{
+		double LatitudeSetpoint;
+		double LongitudeSetpoint;
+		float AltitudeSetpoint = 0.0f;
+		uint64 currentTime;
 
-    		if(RefTimestamp != 0)
-	    	{
-		    	/* Calculate current position setpoint in global frame. */
-			    map_projection_reproject(&RefPos, PositionSetpoint[0], PositionSetpoint[1], &LatitudeSetpoint, &LongitudeSetpoint);
+		if(RefTimestamp != 0)
+		{
+			/* Calculate current position setpoint in global frame. */
+			map_projection_reproject(&RefPos, PositionSetpoint[0], PositionSetpoint[1], &LatitudeSetpoint, &LongitudeSetpoint);
 
-    			/* The altitude setpoint is the reference altitude (Z up) plus the (Z down)
-	    		 * NED setpoint, multiplied out to minus*/
-		    	AltitudeSetpoint = RefAlt - PositionSetpoint[2];
-    		}
+			/* The altitude setpoint is the reference altitude (Z up) plus the (Z down)
+			 * NED setpoint, multiplied out to minus*/
+			AltitudeSetpoint = RefAlt - PositionSetpoint[2];
+		}
 
-	    	/* Update local projection reference including altitude. */
-		    currentTime = PX4LIB_GetPX4TimeUs();
-    		map_projection_init(&RefPos, VehicleLocalPositionMsg.RefLat, VehicleLocalPositionMsg.RefLon, currentTime);
-	    	RefAlt = VehicleLocalPositionMsg.RefAlt;
+		/* Update local projection reference including altitude. */
+		currentTime = PX4LIB_GetPX4TimeUs();
+		map_projection_init(&RefPos, VehicleLocalPositionMsg.RefLat, VehicleLocalPositionMsg.RefLon, currentTime);
+		RefAlt = VehicleLocalPositionMsg.RefAlt;
 
-    		if (RefTimestamp != 0)
-	    	{
-		    	/* Reproject position setpoint to new reference this effectively
-			     * adjusts the position setpoint to keep the vehicle in its
-			     * current local position. It would only change its global
-			     * position on the next setpoint update. */
-			    map_projection_project(&RefPos, LatitudeSetpoint, LongitudeSetpoint, &PositionSetpoint[0], &PositionSetpoint[1]);
-			    PositionSetpoint[2] = -(AltitudeSetpoint - RefAlt);
-		    }
-		    RefTimestamp = VehicleLocalPositionMsg.RefTimestamp;
-        }
+		if (RefTimestamp != 0)
+		{
+			/* Reproject position setpoint to new reference this effectively
+			 * adjusts the position setpoint to keep the vehicle in its
+			 * current local position. It would only change its global
+			 * position on the next setpoint update. */
+			map_projection_project(&RefPos, LatitudeSetpoint, LongitudeSetpoint, &PositionSetpoint[0], &PositionSetpoint[1]);
+			PositionSetpoint[2] = -(AltitudeSetpoint - RefAlt);
+		}
+
+		RefTimestamp = VehicleLocalPositionMsg.RefTimestamp;
 	}
 }
 
@@ -1185,195 +1183,425 @@ void MPC::GenerateAttitudeSetpoint(float dt)
 
 void MPC::ControlManual(float dt)
 {
-	/* Velocity setpoint commanded by user stick input. */
-	math::Vector3F man_vel_sp(0.0f, 0.0f, 0.0f);
+//	/* Entering manual control from non-manual control mode, reset alt/pos setpoints */
+//	if (_mode_auto) {
+//		_mode_auto = false;
+//
+//		/* Reset alt pos flags if resetting is enabled */
+//		if (_do_reset_alt_pos_flag) {
+//			_reset_pos_sp = true;
+//			_reset_alt_sp = true;
+//		}
+//	}
+//
+//	/*
+//	 * Map from stick input to velocity setpoint
+//	 */
+//
+//	/* velocity setpoint commanded by user stick input */
+//	matrix::Vector3f man_vel_sp;
+//
+//	if (_control_mode.flag_control_altitude_enabled) {
+//		/* set vertical velocity setpoint with throttle stick, remapping of manual.z [0,1] to up and down command [-1,1] */
+//		man_vel_sp(2) = -math::expo_deadzone((_manual.z - 0.5f) * 2.f, _z_vel_man_expo.get(), _hold_dz.get());
+//
+//		/* reset alt setpoint to current altitude if needed */
+//		reset_alt_sp();
+//	}
+//
+//	if (_control_mode.flag_control_position_enabled) {
+//		/* set horizontal velocity setpoint with roll/pitch stick */
+//		man_vel_sp(0) = math::expo_deadzone(_manual.x, _xy_vel_man_expo.get(), _hold_dz.get());
+//		man_vel_sp(1) = math::expo_deadzone(_manual.y, _xy_vel_man_expo.get(), _hold_dz.get());
+//
+//		const float man_vel_hor_length = ((matrix::Vector2f)man_vel_sp.slice<2, 1>(0, 0)).length();
+//
+//		/* saturate such that magnitude is never larger than 1 */
+//		if (man_vel_hor_length > 1.0f) {
+//			man_vel_sp(0) /= man_vel_hor_length;
+//			man_vel_sp(1) /= man_vel_hor_length;
+//		}
+//
+//		/* reset position setpoint to current position if needed */
+//		reset_pos_sp();
+//	}
+//
+//	/* prepare yaw to rotate into NED frame */
+//	float yaw_input_frame = _control_mode.flag_control_fixed_hdg_enabled ? _yaw_takeoff : _att_sp.yaw_body;
+//
+//	/* setpoint in NED frame */
+//	man_vel_sp = matrix::Dcmf(matrix::Eulerf(0.0f, 0.0f, yaw_input_frame)) * man_vel_sp;
+//
+//	/* adjust acceleration based on stick input */
+//	matrix::Vector2f stick_xy(man_vel_sp(0), man_vel_sp(1));
+//	set_manual_acceleration_xy(stick_xy, dt);
+//	float stick_z = man_vel_sp(2);
+//	float max_acc_z;
+//	set_manual_acceleration_z(max_acc_z, stick_z, dt);
+//
+//	/* prepare cruise speed (m/s) vector to scale the velocity setpoint */
+//	float vel_mag = (_velocity_hor_manual.get() < _vel_max_xy) ? _velocity_hor_manual.get() : _vel_max_xy;
+//	matrix::Vector3f vel_cruise_scale(vel_mag, vel_mag, (man_vel_sp(2) > 0.0f) ? _params.vel_max_down : _params.vel_max_up);
+//	/* Setpoint scaled to cruise speed */
+//	man_vel_sp = man_vel_sp.emult(vel_cruise_scale);
+//
+//	/*
+//	 * assisted velocity mode: user controls velocity, but if velocity is small enough, position
+//	 * hold is activated for the corresponding axis
+//	 */
+//
+//	/* want to get/stay in altitude hold if user has z stick in the middle (accounted for deadzone already) */
+//	const bool alt_hold_desired = _control_mode.flag_control_altitude_enabled && (_user_intention_z == brake);
+//
+//	/* want to get/stay in position hold if user has xy stick in the middle (accounted for deadzone already) */
+//	const bool pos_hold_desired = _control_mode.flag_control_position_enabled && (_user_intention_xy ==  brake);
+//
+//	/* check vertical hold engaged flag */
+//	if (_alt_hold_engaged) {
+//		_alt_hold_engaged = alt_hold_desired;
+//
+//	} else {
+//
+//		/* check if we switch to alt_hold_engaged */
+//		bool smooth_alt_transition = alt_hold_desired && ((max_acc_z - _acceleration_state_dependent_z) < FLT_EPSILON) &&
+//					     (_params.hold_max_z < FLT_EPSILON || fabsf(_vel(2)) < _params.hold_max_z);
+//
+//		/* during transition predict setpoint forward */
+//		if (smooth_alt_transition) {
+//
+//			/* time to travel from current velocity to zero velocity */
+//			float delta_t = fabsf(_vel(2) / max_acc_z);
+//
+//			/* set desired position setpoint assuming max acceleration */
+//			_pos_sp(2) = _pos(2) + _vel(2) * delta_t + 0.5f * max_acc_z * delta_t *delta_t;
+//
+//			_alt_hold_engaged = true;
+//		}
+//	}
+//
+//	/* check horizontal hold engaged flag */
+//	if (_pos_hold_engaged) {
+//
+//		/* check if contition still true */
+//		_pos_hold_engaged = pos_hold_desired;
+//
+//		/* use max acceleration */
+//		if (_pos_hold_engaged) {
+//			_acceleration_state_dependent_xy = _acceleration_hor_max.get();
+//		}
+//
+//	} else {
+//
+//		/* check if we switch to pos_hold_engaged */
+//		float vel_xy_mag = sqrtf(_vel(0) * _vel(0) + _vel(1) * _vel(1));
+//		bool smooth_pos_transition = pos_hold_desired
+//					     && (fabsf(_acceleration_hor_max.get() - _acceleration_state_dependent_xy) < FLT_EPSILON) &&
+//					     (_params.hold_max_xy < FLT_EPSILON || vel_xy_mag < _params.hold_max_xy);
+//
+//		/* during transition predict setpoint forward */
+//		if (smooth_pos_transition) {
+//
+//			/* time to travel from current velocity to zero velocity */
+//			float delta_t = sqrtf(_vel(0) * _vel(0) + _vel(1) * _vel(1)) / _acceleration_hor_max.get();
+//
+//			/* p pos_sp in xy from max acceleration and current velocity */
+//			math::Vector<2> pos(_pos(0), _pos(1));
+//			math::Vector<2> vel(_vel(0), _vel(1));
+//			math::Vector<2> pos_sp = pos + vel * delta_t - vel.normalized() * 0.5f * _acceleration_hor_max.get() * delta_t *delta_t;
+//			_pos_sp(0) = pos_sp(0);
+//			_pos_sp(1) = pos_sp(1);
+//
+//			_pos_hold_engaged = true;
+//		}
+//	}
+//
+//	/* set requested velocity setpoints */
+//	if (!_alt_hold_engaged) {
+//		_pos_sp(2) = _pos(2);
+//		_run_alt_control = false; /* request velocity setpoint to be used, instead of altitude setpoint */
+//		_vel_sp(2) = man_vel_sp(2);
+//	}
+//
+//	if (!_pos_hold_engaged) {
+//		_pos_sp(0) = _pos(0);
+//		_pos_sp(1) = _pos(1);
+//		_run_pos_control = false; /* request velocity setpoint to be used, instead of position setpoint */
+//		_vel_sp(0) = man_vel_sp(0);
+//		_vel_sp(1) = man_vel_sp(1);
+//	}
+//
+//	control_position(dt);
 
-	/* Entering manual control from non-manual control mode, reset alt/pos setpoints */
-	if(ModeAuto == true)
-	{
-		ModeAuto = false;
 
-		/* Reset alt pos flags if resetting is enabled. */
-		if(DoResetAltPos == true)
-		{
-			ResetPositionSetpoint = true;
-			ResetAltitudeSetpoint = true;
-		}
-	}
-
-	/*
-	 * Map from stick input to velocity setpoint.
-	 */
-
-	if(VehicleControlModeMsg.ControlAltitudeEnabled)
-	{
-		/* Set vertical velocity setpoint with throttle stick, remapping of
-		 * manual.z [0,1] to up and down command [-1,1] */
-		man_vel_sp[2] = -math::expof_deadzone(
-				(ManualControlSetpointMsg.Z - 0.5f) * 2.0f,
-				ConfigTblPtr->XY_MAN_EXPO, ConfigTblPtr->HOLD_DZ);
-
-		/* Reset alt setpoint to current altitude if needed. */
-		ResetAltSetpoint();
-	}
-
-	if (VehicleControlModeMsg.ControlPositionEnabled)
-	{
-		float man_vel_hor_length;
-		math::Vector2F man_vel_hor;
-
-		/* Set horizontal velocity setpoint with roll/pitch stick */
-		man_vel_sp[0] = math::expof_deadzone(
-				ManualControlSetpointMsg.X,
-				ConfigTblPtr->XY_MAN_EXPO, ConfigTblPtr->HOLD_DZ);
-		man_vel_sp[1] = math::expof_deadzone(
-				ManualControlSetpointMsg.Y,
-				ConfigTblPtr->XY_MAN_EXPO, ConfigTblPtr->HOLD_DZ);
-
-		/* Get the horizontal component of the velocity vector. */
-		man_vel_hor[0] = man_vel_sp[0];
-		man_vel_hor[1] = man_vel_sp[1];
-
-		/* Get the magnitude of the horizontal component. */
-		man_vel_hor_length = man_vel_hor.Length();
-
-		/* Saturate such that magnitude is never larger than 1 */
-		if (man_vel_hor_length > 1.0f)
-		{
-			man_vel_sp[0] /= man_vel_hor_length;
-			man_vel_sp[1] /= man_vel_hor_length;
-		}
-
-		/* Reset position setpoint to current position if needed */
-		ResetPosSetpoint();
-	}
-
-	/* Prepare yaw to rotate into NED frame */
-	float yaw_input_frame = VehicleControlModeMsg.ControlFixedHdgEnabled ? YawTakeoff : VehicleAttitudeSetpointMsg.YawBody;
-
-	/* Prepare cruise speed (m/s) vector to scale the velocity setpoint */
-	float vel_mag = (ConfigTblPtr->VEL_MAN_MAX < VelMaxXY) ? ConfigTblPtr->VEL_MAN_MAX : VelMaxXY;
-	math::Vector3F vel_cruise_scale(vel_mag, vel_mag, (man_vel_sp[2] > 0.0f) ? ConfigTblPtr->Z_VEL_MAX_DN : ConfigTblPtr->Z_VEL_MAX_UP);
-
-	/* Setpoint in NED frame and scaled to cruise velocity */
-	man_vel_sp = math::Matrix3F3::FromEuler(0.0f, 0.0f, yaw_input_frame) * man_vel_sp.EMult(vel_cruise_scale);
-
-	/*
-	 * Assisted velocity mode: User controls velocity, but if velocity is small enough, position
-	 * hold is activated for the corresponding axis.
-	 */
-
-	/* Want to get/stay in altitude hold if user has z stick in the middle (accounted for deadzone already) */
-	const bool alt_hold_desired = VehicleControlModeMsg.ControlAltitudeEnabled && fabsf(man_vel_sp[2]) < FLT_EPSILON;
-
-	/* Want to get/stay in position hold if user has xy stick in the middle (accounted for deadzone already) */
-	const bool pos_hold_desired = VehicleControlModeMsg.ControlPositionEnabled &&
-				      fabsf(man_vel_sp[0]) < FLT_EPSILON && fabsf(man_vel_sp[1]) < FLT_EPSILON;
-
-	/* Check vertical hold engaged flag. */
-	if (AltitudeHoldEngaged)
-	{
-		AltitudeHoldEngaged = alt_hold_desired;
-	}
-	else
-	{
-		/* Check if we switch to alt_hold_engaged. */
-		bool smooth_alt_transition = alt_hold_desired &&
-					     (ConfigTblPtr->HOLD_MAX_Z < FLT_EPSILON || fabsf(Velocity[2]) < ConfigTblPtr->HOLD_MAX_Z);
-
-		/* During transition predict setpoint forward. */
-		if (smooth_alt_transition)
-		{
-			/* Get max acceleration. */
-			float max_acc_z = (Velocity[2] < 0.0f ? ConfigTblPtr->ACC_DOWN_MAX : -ConfigTblPtr->ACC_UP_MAX);
-
-			/* Time to travel from current velocity to zero velocity. */
-			float delta_t = fabsf(Velocity[2] / max_acc_z);
-
-			/* Set desired position setpoint assuming max acceleraiton. */
-			PositionSetpoint[2] = PositionSetpoint[2] + Velocity[2] * delta_t + 0.5f * max_acc_z * delta_t * delta_t;
-
-			AltitudeHoldEngaged = true;
-		}
-	}
-
-	/* Check horizontal hold engaged flag. */
-	if (PositionHoldEngaged)
-	{
-		PositionHoldEngaged = pos_hold_desired;
-	}
-	else
-	{
-		/* Check if we switch to pos_hold_engaged. */
-		float vel_xy_mag = sqrtf(Velocity[0] * Velocity[0] + Velocity[1] * Velocity[1]);
-		bool smooth_pos_transition = pos_hold_desired &&
-					     (ConfigTblPtr->HOLD_MAX_XY < FLT_EPSILON || vel_xy_mag < ConfigTblPtr->HOLD_MAX_XY);
-
-		/* During transition predict setpoint forward. */
-		if (smooth_pos_transition)
-		{
-			/* Time to travel from current velocity to zero velocity. */
-			float delta_t = sqrtf(Velocity[0] * Velocity[0] + Velocity[1] * Velocity[1]) / ConfigTblPtr->ACC_HOR_MAX;
-
-			/* p pos_sp in xy from max acceleration and current velocity */
-			math::Vector2F pos(Position[0], Position[1]);
-			math::Vector2F vel(Velocity[0], Velocity[1]);
-			math::Vector2F pos_sp = pos + vel * delta_t - vel.Normalized() * 0.5f * ConfigTblPtr->ACC_HOR_MAX * delta_t * delta_t;
-			PositionSetpoint[0] = pos_sp[0];
-			PositionSetpoint[1] = pos_sp[1];
-
-			PositionHoldEngaged = true;
-		}
-	}
-
-	/* Set requested velocity setpoints */
-	if (!AltitudeHoldEngaged)
-	{
-		PositionSetpoint[2] = Position[2];
-		/* Request velocity setpoint to be used, instead of altitude setpoint */
-		RunAltControl = false;
-		VelocitySetpoint[2] = man_vel_sp[2];
-	}
-
-	if (!PositionHoldEngaged)
-	{
-		PositionSetpoint[0] = Position[0];
-		PositionSetpoint[1] = Position[1];
-		/* Request velocity setpoint to be used, instead of position setpoint */
-		RunPosControl = false;
-		VelocitySetpoint[0] = man_vel_sp[0];
-		VelocitySetpoint[1] = man_vel_sp[1];
-	}
-
-	if (VehicleLandDetectedMsg.Landed)
-	{
-		/* Don't run controller when landed */
-		ResetPositionSetpoint = true;
-		ResetAltitudeSetpoint = true;
-		ModeAuto = false;
-		ResetIntZ = true;
-		ResetIntXY = true;
-
-		RSetpoint.Identity();
-
-		VehicleAttitudeSetpointMsg.RollBody = 0.0f;
-		VehicleAttitudeSetpointMsg.PitchBody = 0.0f;
-		VehicleAttitudeSetpointMsg.YawBody = Yaw;
-		VehicleAttitudeSetpointMsg.Thrust = 0.0f;
-
-		VehicleAttitudeSetpointMsg.Timestamp = PX4LIB_GetPX4TimeUs();
-
-	}
-	else
-	{
-		ControlPosition(dt);
-	}
+// OLD
+//	/* Velocity setpoint commanded by user stick input. */
+//	math::Vector3F man_vel_sp(0.0f, 0.0f, 0.0f);
+//
+//	/* Entering manual control from non-manual control mode, reset alt/pos setpoints */
+//	if(ModeAuto == true)
+//	{
+//		ModeAuto = false;
+//
+//		/* Reset alt pos flags if resetting is enabled. */
+//		if(DoResetAltPos == true)
+//		{
+//			ResetPositionSetpoint = true;
+//			ResetAltitudeSetpoint = true;
+//		}
+//	}
+//
+//	/*
+//	 * Map from stick input to velocity setpoint.
+//	 */
+//
+//	if(VehicleControlModeMsg.ControlAltitudeEnabled)
+//	{
+//		/* Set vertical velocity setpoint with throttle stick, remapping of
+//		 * manual.z [0,1] to up and down command [-1,1] */
+//		man_vel_sp[2] = -math::expof_deadzone(
+//				(ManualControlSetpointMsg.Z - 0.5f) * 2.0f,
+//				ConfigTblPtr->XY_MAN_EXPO, ConfigTblPtr->HOLD_DZ);
+//
+//		/* Reset alt setpoint to current altitude if needed. */
+//		ResetAltSetpoint();
+//	}
+//
+//	if (VehicleControlModeMsg.ControlPositionEnabled)
+//	{
+//		float man_vel_hor_length;
+//		math::Vector2F man_vel_hor;
+//
+//		/* Set horizontal velocity setpoint with roll/pitch stick */
+//		man_vel_sp[0] = math::expof_deadzone(
+//				ManualControlSetpointMsg.X,
+//				ConfigTblPtr->XY_MAN_EXPO, ConfigTblPtr->HOLD_DZ);
+//		man_vel_sp[1] = math::expof_deadzone(
+//				ManualControlSetpointMsg.Y,
+//				ConfigTblPtr->XY_MAN_EXPO, ConfigTblPtr->HOLD_DZ);
+//
+//		/* Get the horizontal component of the velocity vector. */
+//		man_vel_hor[0] = man_vel_sp[0];
+//		man_vel_hor[1] = man_vel_sp[1];
+//
+//		/* Get the magnitude of the horizontal component. */
+//		man_vel_hor_length = man_vel_hor.Length();
+//
+//		/* Saturate such that magnitude is never larger than 1 */
+//		if (man_vel_hor_length > 1.0f)
+//		{
+//			man_vel_sp[0] /= man_vel_hor_length;
+//			man_vel_sp[1] /= man_vel_hor_length;
+//		}
+//
+//		/* Reset position setpoint to current position if needed */
+//		ResetPosSetpoint();
+//	}
+//
+//	/* Prepare yaw to rotate into NED frame */
+//	float yaw_input_frame = VehicleControlModeMsg.ControlFixedHdgEnabled ? YawTakeoff : VehicleAttitudeSetpointMsg.YawBody;
+//
+//	/* Prepare cruise speed (m/s) vector to scale the velocity setpoint */
+//	float vel_mag = (ConfigTblPtr->VEL_MAN_MAX < VelMaxXY) ? ConfigTblPtr->VEL_MAN_MAX : VelMaxXY;
+//	math::Vector3F vel_cruise_scale(vel_mag, vel_mag, (man_vel_sp[2] > 0.0f) ? ConfigTblPtr->Z_VEL_MAX_DN : ConfigTblPtr->Z_VEL_MAX_UP);
+//
+//	/* Setpoint in NED frame and scaled to cruise velocity */
+//	man_vel_sp = math::Matrix3F3::FromEuler(0.0f, 0.0f, yaw_input_frame) * man_vel_sp.EMult(vel_cruise_scale);
+//
+//	/*
+//	 * Assisted velocity mode: User controls velocity, but if velocity is small enough, position
+//	 * hold is activated for the corresponding axis.
+//	 */
+//
+//	/* Want to get/stay in altitude hold if user has z stick in the middle (accounted for deadzone already) */
+//	const bool alt_hold_desired = VehicleControlModeMsg.ControlAltitudeEnabled && fabsf(man_vel_sp[2]) < FLT_EPSILON;
+//
+//	/* Want to get/stay in position hold if user has xy stick in the middle (accounted for deadzone already) */
+//	const bool pos_hold_desired = VehicleControlModeMsg.ControlPositionEnabled &&
+//				      fabsf(man_vel_sp[0]) < FLT_EPSILON && fabsf(man_vel_sp[1]) < FLT_EPSILON;
+//
+//	/* Check vertical hold engaged flag. */
+//	if (AltitudeHoldEngaged)
+//	{
+//		AltitudeHoldEngaged = alt_hold_desired;
+//	}
+//	else
+//	{
+//		/* Check if we switch to alt_hold_engaged. */
+//		bool smooth_alt_transition = alt_hold_desired &&
+//					     (ConfigTblPtr->HOLD_MAX_Z < FLT_EPSILON || fabsf(Velocity[2]) < ConfigTblPtr->HOLD_MAX_Z);
+//
+//		/* During transition predict setpoint forward. */
+//		if (smooth_alt_transition)
+//		{
+//			/* Get max acceleration. */
+//			float max_acc_z = (Velocity[2] < 0.0f ? ConfigTblPtr->ACC_DOWN_MAX : -ConfigTblPtr->ACC_UP_MAX);
+//
+//			/* Time to travel from current velocity to zero velocity. */
+//			float delta_t = fabsf(Velocity[2] / max_acc_z);
+//
+//			/* Set desired position setpoint assuming max acceleraiton. */
+//			PositionSetpoint[2] = PositionSetpoint[2] + Velocity[2] * delta_t + 0.5f * max_acc_z * delta_t * delta_t;
+//
+//			AltitudeHoldEngaged = true;
+//		}
+//	}
+//
+//	/* Check horizontal hold engaged flag. */
+//	if (PositionHoldEngaged)
+//	{
+//		PositionHoldEngaged = pos_hold_desired;
+//	}
+//	else
+//	{
+//		/* Check if we switch to pos_hold_engaged. */
+//		float vel_xy_mag = sqrtf(Velocity[0] * Velocity[0] + Velocity[1] * Velocity[1]);
+//		bool smooth_pos_transition = pos_hold_desired &&
+//					     (ConfigTblPtr->HOLD_MAX_XY < FLT_EPSILON || vel_xy_mag < ConfigTblPtr->HOLD_MAX_XY);
+//
+//		/* During transition predict setpoint forward. */
+//		if (smooth_pos_transition)
+//		{
+//			/* Time to travel from current velocity to zero velocity. */
+//			float delta_t = sqrtf(Velocity[0] * Velocity[0] + Velocity[1] * Velocity[1]) / ConfigTblPtr->ACC_HOR_MAX;
+//
+//			/* p pos_sp in xy from max acceleration and current velocity */
+//			math::Vector2F pos(Position[0], Position[1]);
+//			math::Vector2F vel(Velocity[0], Velocity[1]);
+//			math::Vector2F pos_sp = pos + vel * delta_t - vel.Normalized() * 0.5f * ConfigTblPtr->ACC_HOR_MAX * delta_t * delta_t;
+//			PositionSetpoint[0] = pos_sp[0];
+//			PositionSetpoint[1] = pos_sp[1];
+//
+//			PositionHoldEngaged = true;
+//		}
+//	}
+//
+//	/* Set requested velocity setpoints */
+//	if (!AltitudeHoldEngaged)
+//	{
+//		PositionSetpoint[2] = Position[2];
+//		/* Request velocity setpoint to be used, instead of altitude setpoint */
+//		RunAltControl = false;
+//		VelocitySetpoint[2] = man_vel_sp[2];
+//	}
+//
+//	if (!PositionHoldEngaged)
+//	{
+//		PositionSetpoint[0] = Position[0];
+//		PositionSetpoint[1] = Position[1];
+//		/* Request velocity setpoint to be used, instead of position setpoint */
+//		RunPosControl = false;
+//		VelocitySetpoint[0] = man_vel_sp[0];
+//		VelocitySetpoint[1] = man_vel_sp[1];
+//	}
+//
+//	if (VehicleLandDetectedMsg.Landed)
+//	{
+//		/* Don't run controller when landed */
+//		ResetPositionSetpoint = true;
+//		ResetAltitudeSetpoint = true;
+//		ModeAuto = false;
+//		ResetIntZ = true;
+//		ResetIntXY = true;
+//
+//		RSetpoint.Identity();
+//
+//		VehicleAttitudeSetpointMsg.RollBody = 0.0f;
+//		VehicleAttitudeSetpointMsg.PitchBody = 0.0f;
+//		VehicleAttitudeSetpointMsg.YawBody = Yaw;
+//		VehicleAttitudeSetpointMsg.Thrust = 0.0f;
+//
+//		VehicleAttitudeSetpointMsg.Timestamp = PX4LIB_GetPX4TimeUs();
+//
+//	}
+//	else
+//	{
+//		ControlPosition(dt);
+//	}
 }
 
 
 
 void MPC::ControlNonManual(float dt)
 {
+//	/* select control source */
+//	if (_control_mode.flag_control_offboard_enabled) {
+//		/* offboard control */
+//		control_offboard(dt);
+//		_mode_auto = false;
+//
+//	} else {
+//		_hold_offboard_xy = false;
+//		_hold_offboard_z = false;
+//
+//		/* AUTO */
+//		control_auto(dt);
+//	}
+//
+//	// guard against any bad velocity values
+//	bool velocity_valid = PX4_ISFINITE(_pos_sp_triplet.current.vx) &&
+//			      PX4_ISFINITE(_pos_sp_triplet.current.vy) &&
+//			      _pos_sp_triplet.current.velocity_valid;
+//
+//	// do not go slower than the follow target velocity when position tracking is active (set to valid)
+//	if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_FOLLOW_TARGET &&
+//	    velocity_valid &&
+//	    _pos_sp_triplet.current.position_valid) {
+//
+//		math::Vector<3> ft_vel(_pos_sp_triplet.current.vx, _pos_sp_triplet.current.vy, 0);
+//
+//		float cos_ratio = (ft_vel * _vel_sp) / (ft_vel.length() * _vel_sp.length());
+//
+//		// only override velocity set points when uav is traveling in same direction as target and vector component
+//		// is greater than calculated position set point velocity component
+//
+//		if (cos_ratio > 0) {
+//			ft_vel *= (cos_ratio);
+//			// min speed a little faster than target vel
+//			ft_vel += ft_vel.normalized() * 1.5f;
+//
+//		} else {
+//			ft_vel.zero();
+//		}
+//
+//		_vel_sp(0) = fabsf(ft_vel(0)) > fabsf(_vel_sp(0)) ? ft_vel(0) : _vel_sp(0);
+//		_vel_sp(1) = fabsf(ft_vel(1)) > fabsf(_vel_sp(1)) ? ft_vel(1) : _vel_sp(1);
+//
+//		// track target using velocity only
+//
+//	} else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_FOLLOW_TARGET &&
+//		   velocity_valid) {
+//
+//		_vel_sp(0) = _pos_sp_triplet.current.vx;
+//		_vel_sp(1) = _pos_sp_triplet.current.vy;
+//	}
+//
+//	/* use constant descend rate when landing, ignore altitude setpoint */
+//	if (_pos_sp_triplet.current.valid
+//	    && _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LAND) {
+//		_vel_sp(2) = _params.land_speed;
+//		_run_alt_control = false;
+//	}
+//
+//	if (_pos_sp_triplet.current.valid
+//	    && _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_IDLE) {
+//		/* idle state, don't run controller and set zero thrust */
+//		_R_setpoint.identity();
+//
+//		matrix::Quatf qd = _R_setpoint;
+//		qd.copyTo(_att_sp.q_d);
+//		_att_sp.q_d_valid = true;
+//
+//		_att_sp.roll_body = 0.0f;
+//		_att_sp.pitch_body = 0.0f;
+//		_att_sp.yaw_body = _yaw;
+//		_att_sp.thrust = 0.0f;
+//
+//		_att_sp.timestamp = hrt_absolute_time();
+//
+//	} else {
+//		control_position(dt);
+//	}
+
 	/* Select control source. */
 	if(VehicleControlModeMsg.ControlOffboardEnabled)
 	{
@@ -1548,6 +1776,114 @@ void MPC::ControlPosition(float dt)
 
 void MPC::ControlOffboard(float dt)
 {
+//	if (_pos_sp_triplet.current.valid) {
+//
+//		if (_control_mode.flag_control_position_enabled && _pos_sp_triplet.current.position_valid) {
+//			/* control position */
+//			_pos_sp(0) = _pos_sp_triplet.current.x;
+//			_pos_sp(1) = _pos_sp_triplet.current.y;
+//			_run_pos_control = true;
+//
+//			_hold_offboard_xy = false;
+//
+//		} else if (_control_mode.flag_control_velocity_enabled && _pos_sp_triplet.current.velocity_valid) {
+//			/* control velocity */
+//
+//			/* reset position setpoint to current position if needed */
+//			reset_pos_sp();
+//
+//			if (fabsf(_pos_sp_triplet.current.vx) <= FLT_EPSILON &&
+//			    fabsf(_pos_sp_triplet.current.vy) <= FLT_EPSILON &&
+//			    _local_pos.xy_valid) {
+//
+//				if (!_hold_offboard_xy) {
+//					_pos_sp(0) = _pos(0);
+//					_pos_sp(1) = _pos(1);
+//					_hold_offboard_xy = true;
+//				}
+//
+//				_run_pos_control = true;
+//
+//			} else {
+//
+//				if (_pos_sp_triplet.current.velocity_frame == position_setpoint_s::VELOCITY_FRAME_LOCAL_NED) {
+//					/* set position setpoint move rate */
+//					_vel_sp(0) = _pos_sp_triplet.current.vx;
+//					_vel_sp(1) = _pos_sp_triplet.current.vy;
+//
+//				} else if (_pos_sp_triplet.current.velocity_frame == position_setpoint_s::VELOCITY_FRAME_BODY_NED) {
+//					// Transform velocity command from body frame to NED frame
+//					_vel_sp(0) = cosf(_yaw) * _pos_sp_triplet.current.vx - sinf(_yaw) * _pos_sp_triplet.current.vy;
+//					_vel_sp(1) = sinf(_yaw) * _pos_sp_triplet.current.vx + cosf(_yaw) * _pos_sp_triplet.current.vy;
+//
+//				} else {
+//					warn_rate_limited("Unknown velocity offboard coordinate frame");
+//				}
+//
+//				_run_pos_control = false;
+//
+//				_hold_offboard_xy = false;
+//			}
+//		}
+//
+//		if (_control_mode.flag_control_altitude_enabled && _pos_sp_triplet.current.alt_valid) {
+//			/* control altitude as it is enabled */
+//			_pos_sp(2) = _pos_sp_triplet.current.z;
+//			_run_alt_control = true;
+//
+//			_hold_offboard_z = false;
+//
+//		} else if (_control_mode.flag_control_climb_rate_enabled && _pos_sp_triplet.current.velocity_valid) {
+//
+//			/* reset alt setpoint to current altitude if needed */
+//			reset_alt_sp();
+//
+//			if (fabsf(_pos_sp_triplet.current.vz) <= FLT_EPSILON &&
+//			    _local_pos.z_valid) {
+//
+//				if (!_hold_offboard_z) {
+//					_pos_sp(2) = _pos(2);
+//					_hold_offboard_z = true;
+//				}
+//
+//				_run_alt_control = true;
+//
+//			} else {
+//				/* set position setpoint move rate */
+//				_vel_sp(2) = _pos_sp_triplet.current.vz;
+//				_run_alt_control = false;
+//
+//				_hold_offboard_z = false;
+//			}
+//		}
+//
+//		if (_pos_sp_triplet.current.yaw_valid) {
+//			_att_sp.yaw_body = _pos_sp_triplet.current.yaw;
+//
+//		} else if (_pos_sp_triplet.current.yawspeed_valid) {
+//			float yaw_target = _wrap_pi(_att_sp.yaw_body + _pos_sp_triplet.current.yawspeed * dt);
+//			float yaw_offs = _wrap_pi(yaw_target - _yaw);
+//			const float yaw_rate_max = (_params.man_yaw_max < _params.global_yaw_max) ? _params.man_yaw_max :
+//						   _params.global_yaw_max;
+//			const float yaw_offset_max = yaw_rate_max / _params.mc_att_yaw_p;
+//
+//			// If the yaw offset became too big for the system to track stop
+//			// shifting it, only allow if it would make the offset smaller again.
+//			if (fabsf(yaw_offs) < yaw_offset_max ||
+//			    (_pos_sp_triplet.current.yawspeed > 0 && yaw_offs < 0) ||
+//			    (_pos_sp_triplet.current.yawspeed < 0 && yaw_offs > 0)) {
+//				_att_sp.yaw_body = yaw_target;
+//			}
+//		}
+//
+//	} else {
+//		_hold_offboard_xy = false;
+//		_hold_offboard_z = false;
+//		reset_pos_sp();
+//		reset_alt_sp();
+//	}
+
+
 	if(PositionSetpointTripletMsg.Current.Valid)
 	{
 		if (VehicleControlModeMsg.ControlPositionEnabled && PositionSetpointTripletMsg.Current.PositionValid)
@@ -1664,6 +2000,575 @@ void MPC::ControlOffboard(float dt)
 
 void MPC::ControlAuto(float dt)
 {
+	/* reset position setpoint on AUTO mode activation or if we are not in MC mode */
+//	if (!_mode_auto || !_vehicle_status.is_rotary_wing) {
+//		if (!_mode_auto) {
+//			_mode_auto = true;
+//			//set _triplet_lat_lon_finite true once switch to AUTO(e.g. LAND)
+//			_triplet_lat_lon_finite = true;
+//		}
+//
+//		_reset_pos_sp = true;
+//		_reset_alt_sp = true;
+//	}
+//
+//	// Always check reset state of altitude and position control flags in auto
+//	reset_pos_sp();
+//	reset_alt_sp();
+//
+//	bool current_setpoint_valid = false;
+//	bool previous_setpoint_valid = false;
+//	bool next_setpoint_valid = false;
+//	bool triplet_updated = false;
+//
+//	math::Vector<3> prev_sp;
+//	math::Vector<3> next_sp;
+//
+//	if (_pos_sp_triplet.current.valid) {
+//
+//		math::Vector<3> curr_pos_sp = _curr_pos_sp;
+//
+//		//only project setpoints if they are finite, else use current position
+//		if (PX4_ISFINITE(_pos_sp_triplet.current.lat) &&
+//		    PX4_ISFINITE(_pos_sp_triplet.current.lon)) {
+//			/* project setpoint to local frame */
+//			map_projection_project(&_ref_pos,
+//					       _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon,
+//					       &curr_pos_sp.data[0], &curr_pos_sp.data[1]);
+//
+//			_triplet_lat_lon_finite = true;
+//
+//		} else { // use current position if NAN -> e.g. land
+//			if (_triplet_lat_lon_finite) {
+//				curr_pos_sp.data[0] = _pos(0);
+//				curr_pos_sp.data[1] = _pos(1);
+//				_triplet_lat_lon_finite = false;
+//			}
+//		}
+//
+//		// only project setpoints if they are finite, else use current position
+//		if (PX4_ISFINITE(_pos_sp_triplet.current.alt)) {
+//			curr_pos_sp(2) = -(_pos_sp_triplet.current.alt - _ref_alt);
+//
+//		}
+//
+//
+//		/* sanity check */
+//		if (PX4_ISFINITE(_curr_pos_sp(0)) &&
+//		    PX4_ISFINITE(_curr_pos_sp(1)) &&
+//		    PX4_ISFINITE(_curr_pos_sp(2))) {
+//			current_setpoint_valid = true;
+//		}
+//
+//		/* check if triplets have been updated
+//		 * note: we only can look at xy since navigator applies slewrate to z */
+//		float  diff;
+//
+//		if (_triplet_lat_lon_finite) {
+//			diff = matrix::Vector2f((_curr_pos_sp(0) - curr_pos_sp(0)), (_curr_pos_sp(1) - curr_pos_sp(1))).length();
+//
+//		} else {
+//			diff = fabsf(_curr_pos_sp(2) - curr_pos_sp(2));
+//		}
+//
+//		if (diff > FLT_EPSILON || !PX4_ISFINITE(diff)) {
+//			triplet_updated = true;
+//		}
+//
+//		/* we need to update _curr_pos_sp always since navigator applies slew rate on z */
+//		_curr_pos_sp = curr_pos_sp;
+//	}
+//
+//	if (_pos_sp_triplet.previous.valid) {
+//		map_projection_project(&_ref_pos,
+//				       _pos_sp_triplet.previous.lat, _pos_sp_triplet.previous.lon,
+//				       &prev_sp.data[0], &prev_sp.data[1]);
+//		prev_sp(2) = -(_pos_sp_triplet.previous.alt - _ref_alt);
+//
+//		if (PX4_ISFINITE(prev_sp(0)) &&
+//		    PX4_ISFINITE(prev_sp(1)) &&
+//		    PX4_ISFINITE(prev_sp(2))) {
+//			_prev_pos_sp = prev_sp;
+//			previous_setpoint_valid = true;
+//		}
+//	}
+//
+//	/* set previous setpoint to current position if no previous setpoint available */
+//	if (!previous_setpoint_valid && triplet_updated) {
+//		_prev_pos_sp = _pos;
+//		previous_setpoint_valid = true; /* currrently not necessary to set to true since not used*/
+//	}
+//
+//	if (_pos_sp_triplet.next.valid) {
+//		map_projection_project(&_ref_pos,
+//				       _pos_sp_triplet.next.lat, _pos_sp_triplet.next.lon,
+//				       &next_sp.data[0], &next_sp.data[1]);
+//		next_sp(2) = -(_pos_sp_triplet.next.alt - _ref_alt);
+//
+//		if (PX4_ISFINITE(next_sp(0)) &&
+//		    PX4_ISFINITE(next_sp(1)) &&
+//		    PX4_ISFINITE(next_sp(2))) {
+//			next_setpoint_valid = true;
+//		}
+//	}
+//
+//	/* Auto logic:
+//	 * The vehicle should follow the line previous-current.
+//	 * - if there is no next setpoint or the current is a loiter point, then slowly approach the current along the line
+//	 * - if there is a next setpoint, then the velocity is adjusted depending on the angle of the corner prev-current-next.
+//	 * When following the line, the pos_sp is computed from the orthogonal distance to the closest point on line and the desired cruise speed along the track.
+//	 */
+//
+//	/* create new _pos_sp from triplets */
+//	if (current_setpoint_valid &&
+//	    (_pos_sp_triplet.current.type != position_setpoint_s::SETPOINT_TYPE_IDLE)) {
+//
+//		/* update yaw setpoint if needed */
+//		if (_pos_sp_triplet.current.yawspeed_valid
+//		    && _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_FOLLOW_TARGET) {
+//			_att_sp.yaw_body = _att_sp.yaw_body + _pos_sp_triplet.current.yawspeed * dt;
+//
+//		} else if (PX4_ISFINITE(_pos_sp_triplet.current.yaw)) {
+//			_att_sp.yaw_body = _pos_sp_triplet.current.yaw;
+//		}
+//
+//		float yaw_diff = _wrap_pi(_att_sp.yaw_body - _yaw);
+//
+//		/* only follow previous-current-line for specific triplet type */
+//		if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION  ||
+//		    _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER ||
+//		    _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_FOLLOW_TARGET) {
+//
+//			/* by default use current setpoint as is */
+//			math::Vector<3> pos_sp = _curr_pos_sp;
+//
+//			/*
+//			 * Z-DIRECTION
+//			 */
+//
+//			/* get various distances */
+//			float total_dist_z = fabsf(_curr_pos_sp(2) - _prev_pos_sp(2));
+//			float dist_to_prev_z = fabsf(_pos(2) - _prev_pos_sp(2));
+//			float dist_to_current_z = fabsf(_curr_pos_sp(2) - _pos(2));
+//
+//			/* if pos_sp has not reached target setpoint (=curr_pos_sp(2)),
+//			 * then compute setpoint depending on vel_max */
+//			if ((total_dist_z >  SIGMA_NORM) && (fabsf(_pos_sp(2) - _curr_pos_sp(2)) > SIGMA_NORM)) {
+//
+//				/* check sign */
+//				bool flying_upward = _curr_pos_sp(2) < _pos(2);
+//
+//				/* final_vel_z is the max velocity which depends on the distance of total_dist_z
+//				 * with default params.vel_max_up/down
+//				 */
+//				float final_vel_z = (flying_upward) ? _params.vel_max_up : _params.vel_max_down;
+//
+//				/* target threshold defines the distance to _curr_pos_sp(2) at which
+//				 * the vehicle starts to slow down to approach the target smoothly
+//				 */
+//				float target_threshold_z = final_vel_z * 1.5f;
+//
+//				/* if the total distance in z is NOT 2x distance of target_threshold, we
+//				 * will need to adjust the final_vel_z
+//				 */
+//				bool is_2_target_threshold_z = total_dist_z >= 2.0f * target_threshold_z;
+//				float slope = (final_vel_z) / (target_threshold_z); /* defines the the acceleration when slowing down */
+//				float min_vel_z = 0.2f; // minimum velocity: this is needed since estimation is not perfect
+//
+//				if (!is_2_target_threshold_z) {
+//					/* adjust final_vel_z since we are already very close
+//					 * to current and therefore it is not necessary to accelerate
+//					 * up to full speed (=final_vel_z)
+//					 */
+//					target_threshold_z = total_dist_z * 0.5f;
+//					/* get the velocity at target_threshold_z */
+//					float final_vel_z_tmp = slope * (target_threshold_z) + min_vel_z;
+//
+//					/* make sure that final_vel_z is never smaller than 0.5 of the default final_vel_z
+//					 * this is mainly done because the estimation in z is not perfect and therefore
+//					 * it is necessary to have a minimum speed
+//					 */
+//					final_vel_z = math::constrain(final_vel_z_tmp, final_vel_z * 0.5f, final_vel_z);
+//				}
+//
+//				float vel_sp_z = final_vel_z;
+//
+//				/* we want to slow down */
+//				if (dist_to_current_z < target_threshold_z) {
+//
+//					vel_sp_z = slope * dist_to_current_z + min_vel_z;
+//
+//				} else if (dist_to_prev_z < target_threshold_z) {
+//					/* we want to accelerate */
+//
+//					float acc_z = (vel_sp_z - fabsf(_vel_sp(2))) / dt;
+//					float acc_max = (flying_upward) ? (_acceleration_z_max_up.get() * 0.5f) : (_acceleration_z_max_down.get() * 0.5f);
+//
+//					if (acc_z > acc_max) {
+//						vel_sp_z = _acceleration_z_max_up.get() * dt + fabsf(_vel_sp(2));
+//					}
+//
+//				}
+//
+//				/* if we already close to current, then just take over the velocity that
+//				 * we would have computed if going directly to the current setpoint
+//				 */
+//				if (vel_sp_z >= (dist_to_current_z * _params.pos_p(2))) {
+//					vel_sp_z = dist_to_current_z * _params.pos_p(2);
+//				}
+//
+//				/* make sure vel_sp_z is always positive */
+//				vel_sp_z = math::constrain(vel_sp_z, 0.0f, final_vel_z);
+//				/* get the sign of vel_sp_z */
+//				vel_sp_z = (flying_upward) ? -vel_sp_z : vel_sp_z;
+//				/* compute pos_sp(2) */
+//				pos_sp(2) = _pos(2) + vel_sp_z / _params.pos_p(2);
+//			}
+//
+//			/*
+//			 * XY-DIRECTION
+//			 */
+//
+//			/* line from previous to current and from pos to current */
+//			matrix::Vector2f vec_prev_to_current((_curr_pos_sp(0) - _prev_pos_sp(0)), (_curr_pos_sp(1) - _prev_pos_sp(1)));
+//			matrix::Vector2f vec_pos_to_current((_curr_pos_sp(0) - _pos(0)), (_curr_pos_sp(1) - _pos(1)));
+//
+//
+//			/* check if we just want to stay at current position */
+//			matrix::Vector2f pos_sp_diff((_curr_pos_sp(0) - _pos_sp(0)), (_curr_pos_sp(1) - _pos_sp(1)));
+//			bool stay_at_current_pos = (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER
+//						    || !next_setpoint_valid)
+//						   && ((pos_sp_diff.length()) < SIGMA_NORM);
+//
+//			/* only follow line if previous to current has a minimum distance */
+//			if ((vec_prev_to_current.length()  > _nav_rad.get()) && !stay_at_current_pos) {
+//
+//				/* normalize prev-current line (always > nav_rad) */
+//				matrix::Vector2f unit_prev_to_current = vec_prev_to_current.normalized();
+//
+//				/* unit vector from current to next */
+//				matrix::Vector2f unit_current_to_next(0.0f, 0.0f);
+//
+//				if (next_setpoint_valid) {
+//					unit_current_to_next = matrix::Vector2f((next_sp(0) - pos_sp(0)), (next_sp(1) - pos_sp(1)));
+//					unit_current_to_next = (unit_current_to_next.length() > SIGMA_NORM) ? unit_current_to_next.normalized() :
+//							       unit_current_to_next;
+//				}
+//
+//				/* point on line closest to pos */
+//				matrix::Vector2f closest_point = matrix::Vector2f(_prev_pos_sp(0), _prev_pos_sp(1)) + unit_prev_to_current *
+//								 (matrix::Vector2f((_pos(0) - _prev_pos_sp(0)), (_pos(1) - _prev_pos_sp(1))) * unit_prev_to_current);
+//
+//				matrix::Vector2f vec_closest_to_current((_curr_pos_sp(0) - closest_point(0)), (_curr_pos_sp(1) - closest_point(1)));
+//
+//				/* compute vector from position-current and previous-position */
+//				matrix::Vector2f vec_prev_to_pos((_pos(0) - _prev_pos_sp(0)), (_pos(1) - _prev_pos_sp(1)));
+//
+//				/* current velocity along track */
+//				float vel_sp_along_track_prev = matrix::Vector2f(_vel_sp(0), _vel_sp(1)) * unit_prev_to_current;
+//
+//				/* distance to target when brake should occur */
+//				float target_threshold_xy = 1.5f * get_cruising_speed_xy();
+//
+//				bool close_to_current = vec_pos_to_current.length() < target_threshold_xy;
+//				bool close_to_prev = (vec_prev_to_pos.length() < target_threshold_xy) &&
+//						     (vec_prev_to_pos.length() < vec_pos_to_current.length());
+//
+//				/* indicates if we are at least half the distance from previous to current close to previous */
+//				bool is_2_target_threshold = vec_prev_to_current.length() >= 2.0f * target_threshold_xy;
+//
+//				/* check if the current setpoint is behind */
+//				bool current_behind = ((vec_pos_to_current * -1.0f) * unit_prev_to_current) > 0.0f;
+//
+//				/* check if the previous is in front */
+//				bool previous_in_front = (vec_prev_to_pos * unit_prev_to_current) < 0.0f;
+//
+//				/* default velocity along line prev-current */
+//				float vel_sp_along_track = get_cruising_speed_xy();
+//
+//				/*
+//				 * compute velocity setpoint along track
+//				 */
+//
+//				/* only go directly to previous setpoint if more than 5m away and previous in front*/
+//				if (previous_in_front && (vec_prev_to_pos.length() > 5.0f)) {
+//
+//					/* just use the default velocity along track */
+//					vel_sp_along_track = vec_prev_to_pos.length() * _params.pos_p(0);
+//
+//					if (vel_sp_along_track > get_cruising_speed_xy()) {
+//						vel_sp_along_track = get_cruising_speed_xy();
+//					}
+//
+//				} else if (current_behind) {
+//					/* go directly to current setpoint */
+//					vel_sp_along_track = vec_pos_to_current.length() * _params.pos_p(0);
+//					vel_sp_along_track = (vel_sp_along_track < get_cruising_speed_xy()) ? vel_sp_along_track : get_cruising_speed_xy();
+//
+//				} else if (close_to_prev) {
+//					/* accelerate from previous setpoint towards current setpoint */
+//
+//					/* we are close to previous and current setpoint
+//					 * we first compute the start velocity when close to current septoint and use
+//					 * this velocity as final velocity when transition occurs from acceleration to deceleration.
+//					 * This ensures smooth transition */
+//					float final_cruise_speed = get_cruising_speed_xy();
+//
+//					if (!is_2_target_threshold) {
+//
+//						/* set target threshold to half dist pre-current */
+//						float target_threshold_tmp = target_threshold_xy;
+//						target_threshold_xy = vec_prev_to_current.length() * 0.5f;
+//
+//						if ((target_threshold_xy - _nav_rad.get()) < SIGMA_NORM) {
+//							target_threshold_xy = _nav_rad.get();
+//						}
+//
+//						/* velocity close to current setpoint with default zero if no next setpoint is available */
+//						float vel_close = 0.0f;
+//						float acceptance_radius = 0.0f;
+//
+//						/* we want to pass and need to compute the desired velocity close to current setpoint */
+//						if (next_setpoint_valid &&  !(_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER)) {
+//							/* get velocity close to current that depends on angle between prev-current and current-next line */
+//							vel_close = get_vel_close(unit_prev_to_current, unit_current_to_next);
+//							acceptance_radius = _nav_rad.get();
+//						}
+//
+//						/* compute velocity at transition where vehicle switches from acceleration to deceleration */
+//						if ((target_threshold_tmp - acceptance_radius) < SIGMA_NORM) {
+//							final_cruise_speed = vel_close;
+//
+//						} else {
+//							float slope = (get_cruising_speed_xy() - vel_close) / (target_threshold_tmp - acceptance_radius);
+//							final_cruise_speed = slope  * (target_threshold_xy - acceptance_radius) + vel_close;
+//							final_cruise_speed = (final_cruise_speed > vel_close) ? final_cruise_speed : vel_close;
+//						}
+//					}
+//
+//					/* make sure final cruise speed is larger than 0*/
+//					final_cruise_speed = (final_cruise_speed > SIGMA_NORM) ? final_cruise_speed : SIGMA_NORM;
+//					vel_sp_along_track = final_cruise_speed;
+//
+//					/* we want to accelerate not too fast
+//					* TODO: change the name acceleration_hor_man to something that can
+//					* be used by auto and manual */
+//					float acc_track = (final_cruise_speed - vel_sp_along_track_prev) / dt;
+//
+//					/* if yaw offset is large, only accelerate with 0.5m/s^2 */
+//					float acc = (fabsf(yaw_diff) >  math::radians(_mis_yaw_error.get())) ? 0.5f : _acceleration_hor.get();
+//
+//					if (acc_track > acc) {
+//						vel_sp_along_track = acc * dt + vel_sp_along_track_prev;
+//					}
+//
+//					/* enforce minimum cruise speed */
+//					vel_sp_along_track  = math::constrain(vel_sp_along_track, SIGMA_NORM, final_cruise_speed);
+//
+//				} else if (close_to_current) {
+//					/* slow down when close to current setpoint */
+//
+//					/* check if altidue is within acceptance radius */
+//					bool reached_altitude = (dist_to_current_z < _nav_rad.get()) ? true : false;
+//
+//					if (reached_altitude && next_setpoint_valid
+//					    && !(_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER)) {
+//						/* since we have a next setpoint use the angle prev-current-next to compute velocity setpoint limit */
+//
+//						/* get velocity close to current that depends on angle between prev-current and current-next line */
+//						float vel_close = get_vel_close(unit_prev_to_current, unit_current_to_next);
+//
+//						/* compute velocity along line which depends on distance to current setpoint */
+//						if (vec_closest_to_current.length() < _nav_rad.get()) {
+//							vel_sp_along_track = vel_close;
+//
+//						} else {
+//
+//							if (target_threshold_xy - _nav_rad.get() < SIGMA_NORM) {
+//								vel_sp_along_track = vel_close;
+//
+//							} else {
+//								float slope = (get_cruising_speed_xy() - vel_close) / (target_threshold_xy - _nav_rad.get()) ;
+//								vel_sp_along_track = slope  * (vec_closest_to_current.length() - _nav_rad.get()) + vel_close;
+//							}
+//						}
+//
+//						/* since we want to slow down take over previous velocity setpoint along track if it was lower */
+//						if ((vel_sp_along_track_prev < vel_sp_along_track) && (vel_sp_along_track * vel_sp_along_track_prev > 0.0f)) {
+//							vel_sp_along_track = vel_sp_along_track_prev;
+//						}
+//
+//						/* if we are close to target and the previous velocity setpoints was smaller than
+//						 * vel_sp_along_track, then take over the previous one
+//						 * this ensures smoothness since we anyway want to slow down
+//						 */
+//						if ((vel_sp_along_track_prev < vel_sp_along_track) && (vel_sp_along_track * vel_sp_along_track_prev > 0.0f)
+//						    && (vel_sp_along_track_prev > vel_close)) {
+//							vel_sp_along_track = vel_sp_along_track_prev;
+//						}
+//
+//						/* make sure that vel_sp_along track is at least min */
+//						vel_sp_along_track = (vel_sp_along_track < vel_close) ? vel_close : vel_sp_along_track;
+//
+//
+//					} else {
+//
+//						/* we want to stop at current setpoint */
+//						float slope = (get_cruising_speed_xy())  / target_threshold_xy;
+//						vel_sp_along_track =  slope * (vec_closest_to_current.length());
+//
+//						/* since we want to slow down take over previous velocity setpoint along track if it was lower but ensure its not zero */
+//						if ((vel_sp_along_track_prev < vel_sp_along_track) && (vel_sp_along_track * vel_sp_along_track_prev > 0.0f)
+//						    && (vel_sp_along_track_prev > 0.5f)) {
+//							vel_sp_along_track = vel_sp_along_track_prev;
+//						}
+//					}
+//				}
+//
+//				/* compute velocity orthogonal to prev-current-line to position*/
+//				matrix::Vector2f vec_pos_to_closest = closest_point - matrix::Vector2f(_pos(0), _pos(1));
+//				float vel_sp_orthogonal = vec_pos_to_closest.length() * _params.pos_p(0);
+//
+//				/* compute the cruise speed from velocity along line and orthogonal velocity setpoint */
+//				float cruise_sp_mag = sqrtf(vel_sp_orthogonal * vel_sp_orthogonal + vel_sp_along_track * vel_sp_along_track);
+//
+//				/* sanity check */
+//				cruise_sp_mag = (PX4_ISFINITE(cruise_sp_mag)) ? cruise_sp_mag : vel_sp_orthogonal;
+//
+//				/* orthogonal velocity setpoint is smaller than cruise speed */
+//				if (vel_sp_orthogonal < get_cruising_speed_xy() && !current_behind) {
+//
+//					/* we need to limit vel_sp_along_track such that cruise speed  is never exceeded but still can keep velocity orthogonal to track */
+//					if (cruise_sp_mag > get_cruising_speed_xy()) {
+//						vel_sp_along_track = sqrtf(get_cruising_speed_xy() * get_cruising_speed_xy() - vel_sp_orthogonal * vel_sp_orthogonal);
+//					}
+//
+//					pos_sp(0) = closest_point(0) + unit_prev_to_current(0) * vel_sp_along_track / _params.pos_p(0);
+//					pos_sp(1) = closest_point(1) + unit_prev_to_current(1) * vel_sp_along_track / _params.pos_p(1);
+//
+//				} else if (current_behind) {
+//					/* current is behind */
+//
+//					if (vec_pos_to_current.length()  > 0.01f) {
+//						pos_sp(0) = _pos(0) + vec_pos_to_current(0) / vec_pos_to_current.length() * vel_sp_along_track / _params.pos_p(0);
+//						pos_sp(1) = _pos(1) + vec_pos_to_current(1) / vec_pos_to_current.length() * vel_sp_along_track / _params.pos_p(1);
+//
+//					} else {
+//						pos_sp(0) = _curr_pos_sp(0);
+//						pos_sp(1) = _curr_pos_sp(1);
+//					}
+//
+//				} else {
+//					/* we are more than cruise_speed away from track */
+//
+//					/* if previous is in front just go directly to previous point */
+//					if (previous_in_front) {
+//						vec_pos_to_closest(0) = _prev_pos_sp(0) - _pos(0);
+//						vec_pos_to_closest(1) = _prev_pos_sp(1) - _pos(1);
+//					}
+//
+//					/* make sure that we never exceed maximum cruise speed */
+//					float cruise_sp = vec_pos_to_closest.length() * _params.pos_p(0);
+//
+//					if (cruise_sp > get_cruising_speed_xy()) {
+//						cruise_sp = get_cruising_speed_xy();
+//					}
+//
+//					/* sanity check: don't divide by zero */
+//					if (vec_pos_to_closest.length() > SIGMA_NORM) {
+//						pos_sp(0) = _pos(0) + vec_pos_to_closest(0) / vec_pos_to_closest.length() * cruise_sp / _params.pos_p(0);
+//						pos_sp(1) = _pos(1) + vec_pos_to_closest(1) / vec_pos_to_closest.length() * cruise_sp / _params.pos_p(1);
+//
+//					} else {
+//						pos_sp(0) = closest_point(0);
+//						pos_sp(1) = closest_point(1);
+//					}
+//				}
+//			}
+//
+//			_pos_sp = pos_sp;
+//
+//		} else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_VELOCITY) {
+//
+//			float vel_xy_mag = sqrtf(_vel(0) * _vel(0) + _vel(1) * _vel(1));
+//
+//			if (vel_xy_mag > SIGMA_NORM) {
+//				_vel_sp(0) = _vel(0) / vel_xy_mag * get_cruising_speed_xy();
+//				_vel_sp(1) = _vel(1) / vel_xy_mag * get_cruising_speed_xy();
+//
+//			} else {
+//				/* TODO: we should go in the direction we are heading
+//				 * if current velocity is zero
+//				 */
+//				_vel_sp(0) = 0.0f;
+//				_vel_sp(1) = 0.0f;
+//			}
+//
+//			_run_pos_control = false;
+//
+//		} else {
+//			/* just go to the target point */;
+//			_pos_sp = _curr_pos_sp;
+//
+//			/* set max velocity to cruise */
+//			_vel_max_xy = get_cruising_speed_xy();
+//		}
+//
+//		/* sanity check */
+//		if (!(PX4_ISFINITE(_pos_sp(0)) && PX4_ISFINITE(_pos_sp(1)) &&
+//		      PX4_ISFINITE(_pos_sp(2)))) {
+//
+//			warn_rate_limited("Auto: Position setpoint not finite");
+//			_pos_sp = _curr_pos_sp;
+//		}
+//
+//
+//		/*
+//		 * if we're already near the current takeoff setpoint don't reset in case we switch back to posctl.
+//		 * this makes the takeoff finish smoothly.
+//		 */
+//		if ((_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF
+//		     || _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER)
+//		    && _pos_sp_triplet.current.acceptance_radius > 0.0f
+//		    /* need to detect we're close a bit before the navigator switches from takeoff to next waypoint */
+//		    && (_pos - _pos_sp).length() < _pos_sp_triplet.current.acceptance_radius * 1.2f) {
+//			_do_reset_alt_pos_flag = false;
+//
+//		} else {
+//			/* otherwise: in case of interrupted mission don't go to waypoint but stay at current position */
+//			_do_reset_alt_pos_flag = true;
+//		}
+//
+//		// Handle the landing gear based on the manual landing alt
+//		const bool high_enough_for_landing_gear = (-_pos(2) + _home_pos.z > 2.0f);
+//
+//		// During a mission or in loiter it's safe to retract the landing gear.
+//		if ((_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION ||
+//		     _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER) &&
+//		    !_vehicle_land_detected.landed &&
+//		    high_enough_for_landing_gear) {
+//
+//			_att_sp.landing_gear = vehicle_attitude_setpoint_s::LANDING_GEAR_UP;
+//
+//		} else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF ||
+//			   _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LAND ||
+//			   !high_enough_for_landing_gear) {
+//
+//			// During takeoff and landing, we better put it down again.
+//			_att_sp.landing_gear = vehicle_attitude_setpoint_s::LANDING_GEAR_DOWN;
+//
+//			// For the rest of the setpoint types, just leave it as is.
+//		}
+//
+//	} else {
+//		/* idle or triplet not valid, set velocity setpoint to zero */
+//		_vel_sp.zero();
+//		_run_pos_control = false;
+//		_run_alt_control = false;
+//	}
+
+
+
 	/* Reset position setpoint on AUTO mode activation or if we are not in
 	 * MC mode */
 	if (!ModeAuto || !VehicleStatusMsg.IsRotaryWing)
@@ -2541,31 +3446,38 @@ void MPC::UpdateParamsFromTable(void)
  */
 void MPC::LimitAltitude(void)
 {
-	/* In altitude control, limit setpoint. */
-	if (RunAltControl && PositionSetpoint[2] <= -VehicleLandDetectedMsg.AltMax)
+	if (VehicleLandDetectedMsg.AltMax < 0.0f)
 	{
-		PositionSetpoint[2] = -VehicleLandDetectedMsg.AltMax;
+		// there is no altitude limitation present
+		//goto MPC_LimitAltitude_ExitTag;
+		return;
 	}
-	else
+
+	float AltitudeAboveHome = -(Position[2] - HomePositionMsg.Z);
+
+	if (RunAltControl && (AltitudeAboveHome > VehicleLandDetectedMsg.AltMax))
 	{
-		/* In velocity control mode and want to fly upwards. */
-		if (!RunAltControl && VelocitySetpoint[2] <= 0.0f)
-		{
-			/* Time to travel to reach zero velocity. */
-			float delta_t = -Velocity[2] / ConfigTblPtr->ACC_DOWN_MAX;
+		// we are above maximum altitude
+		PositionSetpoint[2] = -VehicleLandDetectedMsg.AltMax +  HomePositionMsg.Z;
+	}
+	else if (!RunAltControl && VelocitySetpoint[2] <= 0.0f)
+	{
+		// we want to fly upwards: check if vehicle does not exceed altitude
 
-			/* Predicted position */
-			float pos_z_next = Position[2] + Velocity[2] * delta_t + 0.5f *
-					ConfigTblPtr->ACC_DOWN_MAX * delta_t * delta_t;
+		// time to reach zero velocity
+		float delta_t = -Velocity[2] / ConfigTblPtr->ACC_DOWN_MAX;
 
-			if (pos_z_next <= -VehicleLandDetectedMsg.AltMax)
-			{
-				PositionSetpoint[2] = -VehicleLandDetectedMsg.AltMax;
-				RunAltControl = true;
-				return;
-			}
+		// predict next position based on current position, velocity, max acceleration downwards and time to reach zero velocity
+		float pos_z_next = Position[2] + Velocity[2] * delta_t + 0.5f * ConfigTblPtr->ACC_DOWN_MAX * delta_t * delta_t;
+
+		if (-(pos_z_next - HomePositionMsg.Z) > VehicleLandDetectedMsg.AltMax) {
+			// prevent the vehicle from exceeding maximum altitude by switching back to altitude control with maximum altitude as setpoint
+			PositionSetpoint[2] = -VehicleLandDetectedMsg.AltMax + HomePositionMsg.Z;
+			RunAltControl = true;
 		}
 	}
+
+	return;
 }
 
 
@@ -2669,6 +3581,349 @@ bool MPC::InAutoTakeoff(void)
 	}
 
 	return res;
+}
+
+float MPC::GetVelClose(const math::Vector2F &unit_prev_to_current, const math::Vector2F &unit_current_to_next)
+{
+	/* minimum cruise speed when passing waypoint */
+	float min_cruise_speed = 1.0f;
+
+	/* make sure that cruise speed is larger than minimum*/
+	if ((GetCruisingSpeedXY() - min_cruise_speed) < SIGMA_NORM)
+	{
+		return GetCruisingSpeedXY();
+	}
+
+	/* middle cruise speed is a number between maximum cruising speed and minimum cruising speed and corresponds to speed at angle of 90degrees
+	 * it needs to be always larger than minimum cruise speed */
+	float middle_cruise_speed = ConfigTblPtr->MPC_CRUISE_90;
+
+	if ((middle_cruise_speed - min_cruise_speed) < SIGMA_NORM)
+	{
+		middle_cruise_speed = min_cruise_speed + SIGMA_NORM;
+	}
+
+	if ((GetCruisingSpeedXY() - middle_cruise_speed) < SIGMA_NORM)
+	{
+		middle_cruise_speed = (GetCruisingSpeedXY() + min_cruise_speed) * 0.5f;
+	}
+
+	/* if middle cruise speed is exactly in the middle, then compute
+	 * vel_close linearly
+	 */
+	bool use_linear_approach = false;
+
+	if (((GetCruisingSpeedXY() + min_cruise_speed) * 0.5f) - middle_cruise_speed < SIGMA_NORM)
+	{
+		use_linear_approach = true;
+	}
+
+	/* angle = cos(x) + 1.0
+	 * angle goes from 0 to 2 with 0 = large angle, 2 = small angle:   0 = PI ; 2 = PI*0 */
+	float angle = 2.0f;
+
+	if (unit_current_to_next.Length() > SIGMA_NORM)
+	{
+		angle = unit_current_to_next * (unit_prev_to_current * -1.0f) + 1.0f;
+	}
+
+	/* compute velocity target close to waypoint */
+	float vel_close;
+
+	if (use_linear_approach)
+	{
+
+		/* velocity close to target adjusted to angle
+		 * vel_close =  m*x+q
+		 */
+		float slope = -(GetCruisingSpeedXY() - min_cruise_speed) / 2.0f;
+		vel_close = slope * angle + GetCruisingSpeedXY();
+
+	} else
+	{
+
+		/* velocity close to target adjusted to angle
+		 * vel_close = a *b ^x + c; where at angle = 0 -> vel_close = vel_cruise; angle = 1 -> vel_close = middle_cruise_speed (this means that at 90degrees
+		 * the velocity at target is middle_cruise_speed);
+		 * angle = 2 -> vel_close = min_cruising_speed */
+
+		/* from maximum cruise speed, minimum cruise speed and middle cruise speed compute constants a, b and c */
+		float a = -((middle_cruise_speed -  GetCruisingSpeedXY()) * (middle_cruise_speed -  GetCruisingSpeedXY())) /
+			  (2.0f * middle_cruise_speed - GetCruisingSpeedXY() - min_cruise_speed);
+		float c =  GetCruisingSpeedXY() - a;
+		float b = (middle_cruise_speed - c) / a;
+		vel_close = a * powf(b, angle) + c;
+	}
+
+	/* vel_close needs to be in between max and min */
+	return math::constrain(vel_close, min_cruise_speed, GetCruisingSpeedXY());
+}
+
+void MPC::SetManualAccelerationZ(float &max_acceleration, const float stick_z, const float dt)
+{
+	/* in manual altitude control apply acceleration limit based on stick input
+	 * we consider two states
+	 * 1.) brake
+	 * 2.) accelerate */
+
+	/* check if zero input stick */
+	const bool is_current_zero = (fabsf(stick_z) <= FLT_EPSILON);
+
+	/* default is acceleration */
+	manual_stick_input intention = acceleration;
+
+	/* check zero input stick */
+	if (is_current_zero) {
+		intention = brake;
+	}
+
+	/* get max and min acceleration where min acceleration is just 1/5 of max acceleration */
+	max_acceleration = (stick_z <= 0.0f) ? ConfigTblPtr->ACC_DOWN_MAX : ConfigTblPtr->ACC_DOWN_MAX;
+
+	/*
+	 * update user input
+	 */
+	if ((_user_intention_z != brake) && (intention  == brake)) {
+
+		/* we start with lowest acceleration */
+		_acceleration_state_dependent_z = ConfigTblPtr->ACC_DOWN_MAX;
+
+		/* reset slew rate */
+		VelocitySetpointPrevious[2] = Velocity[2];
+		_user_intention_z = brake;
+	}
+
+	_user_intention_z = intention;
+
+	/*
+	 * apply acceleration depending on state
+	 */
+	if (_user_intention_z == brake) {
+
+		/* limit jerk when braking to zero */
+		float jerk = (ConfigTblPtr->ACC_UP_MAX - _acceleration_state_dependent_z) / dt;
+
+		if (jerk > _manual_jerk_limit_z) {
+			_acceleration_state_dependent_z = _manual_jerk_limit_z * dt + _acceleration_state_dependent_z;
+
+		} else {
+			_acceleration_state_dependent_z = ConfigTblPtr->ACC_UP_MAX;
+		}
+	}
+
+	if (_user_intention_z == acceleration) {
+		_acceleration_state_dependent_z = (max_acceleration - ConfigTblPtr->ACC_DOWN_MAX) * fabsf(
+				stick_z) + ConfigTblPtr->ACC_DOWN_MAX;
+	}
+}
+
+void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt)
+{
+
+	/*
+	 * In manual mode we consider four states with different acceleration handling:
+	 * 1. user wants to stop
+	 * 2. user wants to quickly change direction
+	 * 3. user wants to accelerate
+	 * 4. user wants to decelerate
+	 */
+
+	/* get normalized stick input vector */
+	math::Vector2F stick_xy_norm = (stick_xy.Length() > 0.0f) ? stick_xy.Normalized() : stick_xy;
+	math::Vector2F stick_xy_prev_norm = (_stick_input_xy_prev.Length() > 0.0f) ? _stick_input_xy_prev.Normalized() :
+					      _stick_input_xy_prev;
+
+	/* check if stick direction and current velocity are within 60angle */
+	const bool is_aligned = (stick_xy_norm * stick_xy_prev_norm) > 0.5f;
+
+	/* check if zero input stick */
+	const bool is_prev_zero = (fabsf(_stick_input_xy_prev.Length()) <= FLT_EPSILON);
+	const bool is_current_zero = (fabsf(stick_xy.Length()) <= FLT_EPSILON);
+
+	/* check acceleration */
+	const bool do_acceleration = is_prev_zero || (is_aligned &&
+				     ((stick_xy.Length() > _stick_input_xy_prev.Length()) || (fabsf(stick_xy.Length() - 1.0f) < FLT_EPSILON)));
+
+	const bool do_deceleration = (is_aligned && (stick_xy.Length() <= _stick_input_xy_prev.Length()));
+
+	const bool do_direction_change = !is_aligned;
+
+	manual_stick_input intention;
+
+	if (is_current_zero) {
+		/* we want to stop */
+		intention = brake;
+
+	} else if (do_acceleration) {
+		/* we do manual acceleration */
+		intention = acceleration;
+
+	} else if (do_deceleration) {
+		/* we do manual deceleration */
+		intention = deceleration;
+
+	} else if (do_direction_change) {
+		/* we have a direction change */
+		intention = direction_change;
+
+	} else {
+		/* catchall: acceleration */
+		intention = acceleration;
+	}
+
+
+	/*
+	 * update user intention
+	 */
+
+	/* we always want to break starting with slow deceleration */
+	if ((_user_intention_xy != brake) && (intention  == brake)) {
+
+		if (_jerk_hor_max.get() > _jerk_hor_min.get()) {
+			_manual_jerk_limit_xy = (_jerk_hor_max.get() - _jerk_hor_min.get()) / _velocity_hor_manual.get() *
+						sqrtf(_vel(0) * _vel(0) + _vel(1) * _vel(1)) + _jerk_hor_min.get();
+
+			/* we start braking with lowest accleration */
+			_acceleration_state_dependent_xy = _deceleration_hor_slow.get();
+
+		} else {
+
+			/* set the jerk limit large since we don't know it better*/
+			_manual_jerk_limit_xy = 1000000.f;
+
+			/* at brake we use max acceleration */
+			_acceleration_state_dependent_xy = _acceleration_hor_max.get();
+
+		}
+
+		/* reset slew rate */
+		_vel_sp_prev(0) = _vel(0);
+		_vel_sp_prev(1) = _vel(1);
+
+	}
+
+	switch (_user_intention_xy) {
+	case brake: {
+			if (intention != brake) {
+				_user_intention_xy = acceleration;
+				/* we initialize with lowest acceleration */
+				_acceleration_state_dependent_xy = _deceleration_hor_slow.get();
+			}
+
+			break;
+		}
+
+	case direction_change: {
+			/* only exit direction change if brake or aligned */
+			math::Vector2F vel_xy(_vel(0), _vel(1));
+			math::Vector2F vel_xy_norm = (vel_xy.Length() > 0.0f) ? vel_xy.Normalized() : vel_xy;
+			bool stick_vel_aligned = (vel_xy_norm * stick_xy_norm > 0.0f);
+
+			/* update manual direction change hysteresis */
+			_manual_direction_change_hysteresis.set_state_and_update(!stick_vel_aligned);
+
+
+			/* exit direction change if one of the condition is met */
+			if (intention == brake) {
+				_user_intention_xy = intention;
+
+			} else if (stick_vel_aligned) {
+				_user_intention_xy = acceleration;
+
+			} else if (_manual_direction_change_hysteresis.get_state()) {
+
+				/* TODO: find conditions which are always continuous
+				 * only if stick input is large*/
+				if (stick_xy.Length() > 0.6f) {
+					_acceleration_state_dependent_xy = _acceleration_hor_max.get();
+				}
+			}
+
+			break;
+		}
+
+	case acceleration: {
+			_user_intention_xy = intention;
+
+			if (_user_intention_xy == direction_change) {
+				_vel_sp_prev(0) = _vel(0);
+				_vel_sp_prev(1) = _vel(1);
+			}
+
+			break;
+		}
+
+	case deceleration: {
+			_user_intention_xy = intention;
+
+			if (_user_intention_xy == direction_change) {
+				_vel_sp_prev(0) = _vel(0);
+				_vel_sp_prev(1) = _vel(1);
+			}
+
+			break;
+		}
+	}
+
+	/*
+	 * apply acceleration based on state
+	*/
+	switch (_user_intention_xy) {
+	case brake: {
+
+			/* limit jerk when braking to zero */
+			float jerk = (_acceleration_hor_max.get() - _acceleration_state_dependent_xy) / dt;
+
+			if (jerk > _manual_jerk_limit_xy) {
+				_acceleration_state_dependent_xy = _manual_jerk_limit_xy * dt + _acceleration_state_dependent_xy;
+
+			} else {
+				_acceleration_state_dependent_xy = _acceleration_hor_max.get();
+			}
+
+			break;
+		}
+
+	case direction_change: {
+
+			/* limit acceleration linearly on stick input*/
+			_acceleration_state_dependent_xy = (_acceleration_hor.get() - _deceleration_hor_slow.get()) * stick_xy.Length() +
+							   _deceleration_hor_slow.get();
+			break;
+		}
+
+	case acceleration: {
+			/* limit acceleration linearly on stick input*/
+			float acc_limit  = (_acceleration_hor.get() - _deceleration_hor_slow.get()) * stick_xy.Length()
+					   + _deceleration_hor_slow.get();
+
+			if (_acceleration_state_dependent_xy > acc_limit) {
+				acc_limit = _acceleration_state_dependent_xy;
+			}
+
+			_acceleration_state_dependent_xy = acc_limit;
+			break;
+		}
+
+	case deceleration: {
+			_acceleration_state_dependent_xy = _deceleration_hor_slow.get();
+			break;
+		}
+
+	default :
+		warn_rate_limited("User intention not recognized");
+		_acceleration_state_dependent_xy = _acceleration_hor_max.get();
+
+	}
+
+	/* update previous stick input */
+	_stick_input_xy_prev = matrix::Vector2f(_filter_manual_pitch.apply(stick_xy(0)),
+						_filter_manual_roll.apply(stick_xy(1)));
+
+
+	if (_stick_input_xy_prev.Length() > 1.0f) {
+		_stick_input_xy_prev = _stick_input_xy_prev.Normalized();
+	}
 }
 
 /************************/

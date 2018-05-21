@@ -447,17 +447,7 @@ typedef struct
      */
     float VELD_LP;
 
-    /**
-     * Maximum horizonal acceleration in velocity controlled modes
-     *
-     * @unit m/s/s
-     * @min 2.0
-     * @max 15.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
-     */
-    float ACC_HOR_MAX;
+
 
     /**
      * Maximum horizonal braking deceleration in velocity controlled modes
@@ -471,29 +461,7 @@ typedef struct
      */
     float DEC_HOR_MAX;
 
-    /**
-     * Maximum vertical acceleration in velocity controlled modes upward
-     *
-     * @unit m/s/s
-     * @min 2.0
-     * @max 15.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
-     */
-    float ACC_UP_MAX;
 
-    /**
-     * Maximum vertical acceleration in velocity controlled modes down
-     *
-     * @unit m/s/s
-     * @min 2.0
-     * @max 15.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
-     */
-    float ACC_DOWN_MAX;
 
     /**
      * Altitude control mode, note mode 1 only tested with LPE
@@ -587,6 +555,130 @@ typedef struct
     int32 VT_OPT_RECOV_EN;
 
     float MIS_LTRMIN_ALT;
+
+
+
+
+    /**
+     * Maximum vertical acceleration in velocity controlled modes upward
+     *
+     * @unit m/s/s
+     * @min 2.0
+     * @max 15.0
+     * @increment 1
+     * @decimal 2
+     * @group Multicopter Position Control
+     */
+    float ACC_UP_MAX;
+
+    /**
+     * Maximum vertical acceleration in velocity controlled modes down
+     *
+     * @unit m/s/s
+     * @min 2.0
+     * @max 15.0
+     * @increment 1
+     * @decimal 2
+     * @group Multicopter Position Control
+     */
+    float ACC_DOWN_MAX;
+
+    /**
+     * Maximum horizonal acceleration in velocity controlled modes
+     *
+     * @unit m/s/s
+     * @min 2.0
+     * @max 15.0
+     * @increment 1
+     * @decimal 2
+     * @group Multicopter Position Control
+     */
+    float ACC_HOR_MAX;
+
+    /**
+     * Acceleration for auto and for manual
+     *
+     * @unit m/s/s
+     * @min 2.0
+     * @max 15.0
+     * @increment 1
+     * @decimal 2
+     * @group Multicopter Position Control
+     */
+
+    float MPC_ACC_HOR;
+
+    /**
+     * Cruise speed when angle prev-current/current-next setpoint
+     * is 90 degrees. It should be lower than MPC_XY_CRUISE.
+     *
+     * Applies only in AUTO modes (includes
+     * also RTL / hold / etc.)
+     *
+     * @unit m/s
+     * @min 1.0
+     * @increment 1
+     * @decimal 2
+     * @group Multicopter Position Control
+     */
+    float MPC_CRUISE_90;
+
+    /**
+     * Maximum jerk in manual controlled mode for BRAKING to zero.
+     * If this value is below MPC_JERK_MIN, the acceleration limit in xy and z
+     * is MPC_ACC_HOR_MAX and MPC_ACC_UP_MAX respectively instantaneously when the
+     * user demands brake (=zero stick input).
+     * Otherwise the acceleration limit increases from current acceleration limit
+     * towards MPC_ACC_HOR_MAX/MPC_ACC_UP_MAX with jerk limit
+     *
+     * @unit m/s/s/s
+     * @min 0.0
+     * @max 15.0
+     * @increment 1
+     * @decimal 2
+     * @group Multicopter Position Control
+     */
+    float MPC_JERK_MAX;
+
+    /**
+     * Minimum jerk in manual controlled mode for BRAKING to zero
+     *
+     * @unit m/s/s/s
+     * @min 0.5
+     * @max 10.0
+     * @increment 1
+     * @decimal 2
+     * @group Multicopter Position Control
+     */
+    float MPC_JERK_MIN;
+
+    /**
+     * Slow horizontal manual deceleration for manual mode
+     *
+     * @unit m/s/s
+     * @min 0.5
+     * @max 10.0
+     * @increment 1
+     * @decimal 2
+     * @group Multicopter Position Control
+     */
+    float MPC_DEC_HOR_SLOW;
+
+    /**
+     * Maximum horizontal velocity setpoint for manual controlled mode
+     * If velocity setpoint larger than MPC_XY_VEL_MAX is set, then
+     * the setpoint will be capped to MPC_XY_VEL_MAX
+     *
+     * @unit m/s
+     * @min 3.0
+     * @max 20.0
+     * @increment 1
+     * @decimal 2
+     * @group Multicopter Position Control
+     */
+    float MPC_VEL_MANUAL;
+
+
 } MPC_ConfigTbl_t;
 
 
