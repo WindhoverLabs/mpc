@@ -318,6 +318,7 @@ void MPC::InitData()
 
 	WasArmed = false;
 	WasLanded = true;
+    receivedLocalPosition = false;
 }
 
 
@@ -405,7 +406,12 @@ int32 MPC::RcvSchPipeMsg(int32 iBlocking)
         switch (MsgId)
         {
             case MPC_WAKEUP_MID:
-            	Execute();
+                /* If vehicle local position has been received begin
+                 * cyclic ops. */
+                if(receivedLocalPosition)
+                {
+                    Execute();
+                }
                 break;
 
             case MPC_SEND_HK_MID:
@@ -445,6 +451,8 @@ int32 MPC::RcvSchPipeMsg(int32 iBlocking)
                 break;
 
             case PX4_VEHICLE_LOCAL_POSITION_MID:
+                /* Set vehicle local position flag to begin cyclic ops. */
+                receivedLocalPosition = true;
                 memcpy(&VehicleLocalPositionMsg, MsgPtr, sizeof(VehicleLocalPositionMsg));
                 ProcessVehicleLocalPositionMsg();
                 break;
