@@ -1068,8 +1068,10 @@ void MPC::DoControl(float dt)
 
 void MPC::GenerateAttitudeSetpoint(float dt)
 {
-	/* Reset yaw setpoint to current position if needed. */
-	if (ResetYawSetpoint)
+	/* Reset yaw setpoint to current position if needed. If the vehicle
+     * is landed continually reset the attitude setpoint yaw body 
+     * until takeoff. */
+	if (ResetYawSetpoint || VehicleLandDetectedMsg.Landed)
 	{
 		ResetYawSetpoint = false;
 		VehicleAttitudeSetpointMsg.YawBody = Yaw;
