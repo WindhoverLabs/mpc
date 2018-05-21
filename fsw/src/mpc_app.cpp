@@ -1240,7 +1240,7 @@ void MPC::ControlManual(float dt)
 //	set_manual_acceleration_z(max_acc_z, stick_z, dt);
 //
 //	/* prepare cruise speed (m/s) vector to scale the velocity setpoint */
-//	float vel_mag = (_velocity_hor_manual.get() < _vel_max_xy) ? _velocity_hor_manual.get() : _vel_max_xy;
+//	float vel_mag = (ConfigTblPtr->MPC_VEL_MANUAL < _vel_max_xy) ? ConfigTblPtr->MPC_VEL_MANUAL : _vel_max_xy;
 //	matrix::Vector3f vel_cruise_scale(vel_mag, vel_mag, (man_vel_sp(2) > 0.0f) ? _params.vel_max_down : _params.vel_max_up);
 //	/* Setpoint scaled to cruise speed */
 //	man_vel_sp = man_vel_sp.emult(vel_cruise_scale);
@@ -1264,16 +1264,16 @@ void MPC::ControlManual(float dt)
 //
 //		/* check if we switch to alt_hold_engaged */
 //		bool smooth_alt_transition = alt_hold_desired && ((max_acc_z - _acceleration_state_dependent_z) < FLT_EPSILON) &&
-//					     (_params.hold_max_z < FLT_EPSILON || fabsf(_vel(2)) < _params.hold_max_z);
+//					     (_params.hold_max_z < FLT_EPSILON || fabsf(Velocity[2)) < _params.hold_max_z);
 //
 //		/* during transition predict setpoint forward */
 //		if (smooth_alt_transition) {
 //
 //			/* time to travel from current velocity to zero velocity */
-//			float delta_t = fabsf(_vel(2) / max_acc_z);
+//			float delta_t = fabsf(Velocity[2) / max_acc_z);
 //
 //			/* set desired position setpoint assuming max acceleration */
-//			_pos_sp(2) = _pos(2) + _vel(2) * delta_t + 0.5f * max_acc_z * delta_t *delta_t;
+//			_pos_sp(2) = _pos(2) + Velocity[2) * delta_t + 0.5f * max_acc_z * delta_t *delta_t;
 //
 //			_alt_hold_engaged = true;
 //		}
@@ -1287,27 +1287,27 @@ void MPC::ControlManual(float dt)
 //
 //		/* use max acceleration */
 //		if (_pos_hold_engaged) {
-//			_acceleration_state_dependent_xy = _acceleration_hor_max.get();
+//			_acceleration_state_dependent_xy = ConfigTblPtr->ACC_HOR_MAX;
 //		}
 //
 //	} else {
 //
 //		/* check if we switch to pos_hold_engaged */
-//		float vel_xy_mag = sqrtf(_vel(0) * _vel(0) + _vel(1) * _vel(1));
+//		float vel_xy_mag = sqrtf(Velocity[0) * Velocity[0) + Velocity[1) * Velocity[1));
 //		bool smooth_pos_transition = pos_hold_desired
-//					     && (fabsf(_acceleration_hor_max.get() - _acceleration_state_dependent_xy) < FLT_EPSILON) &&
+//					     && (fabsf(ConfigTblPtr->ACC_HOR_MAX - _acceleration_state_dependent_xy) < FLT_EPSILON) &&
 //					     (_params.hold_max_xy < FLT_EPSILON || vel_xy_mag < _params.hold_max_xy);
 //
 //		/* during transition predict setpoint forward */
 //		if (smooth_pos_transition) {
 //
 //			/* time to travel from current velocity to zero velocity */
-//			float delta_t = sqrtf(_vel(0) * _vel(0) + _vel(1) * _vel(1)) / _acceleration_hor_max.get();
+//			float delta_t = sqrtf(Velocity[0) * Velocity[0) + Velocity[1) * Velocity[1)) / ConfigTblPtr->ACC_HOR_MAX;
 //
 //			/* p pos_sp in xy from max acceleration and current velocity */
 //			math::Vector<2> pos(_pos(0), _pos(1));
-//			math::Vector<2> vel(_vel(0), _vel(1));
-//			math::Vector<2> pos_sp = pos + vel * delta_t - vel.normalized() * 0.5f * _acceleration_hor_max.get() * delta_t *delta_t;
+//			math::Vector<2> vel(Velocity[0), Velocity[1));
+//			math::Vector<2> pos_sp = pos + vel * delta_t - vel.normalized() * 0.5f * ConfigTblPtr->ACC_HOR_MAX * delta_t *delta_t;
 //			_pos_sp(0) = pos_sp(0);
 //			_pos_sp(1) = pos_sp(1);
 //
@@ -1547,7 +1547,7 @@ void MPC::ControlNonManual(float dt)
 //	    velocity_valid &&
 //	    _pos_sp_triplet.current.position_valid) {
 //
-//		math::Vector<3> ft_vel(_pos_sp_triplet.current.vx, _pos_sp_triplet.current.vy, 0);
+//		math::Vector<3> ftVelocity[_pos_sp_triplet.current.vx, _pos_sp_triplet.current.vy, 0);
 //
 //		float cos_ratio = (ft_vel * _vel_sp) / (ft_vel.length() * _vel_sp.length());
 //
@@ -1563,8 +1563,8 @@ void MPC::ControlNonManual(float dt)
 //			ft_vel.zero();
 //		}
 //
-//		_vel_sp(0) = fabsf(ft_vel(0)) > fabsf(_vel_sp(0)) ? ft_vel(0) : _vel_sp(0);
-//		_vel_sp(1) = fabsf(ft_vel(1)) > fabsf(_vel_sp(1)) ? ft_vel(1) : _vel_sp(1);
+//		_vel_sp(0) = fabsf(ftVelocity[0)) > fabsf(_vel_sp(0)) ? ftVelocity[0) : _vel_sp(0);
+//		_vel_sp(1) = fabsf(ftVelocity[1)) > fabsf(_vel_sp(1)) ? ftVelocity[1) : _vel_sp(1);
 //
 //		// track target using velocity only
 //
@@ -1641,7 +1641,7 @@ void MPC::ControlNonManual(float dt)
 	    velocity_valid &&
 		PositionSetpointTripletMsg.Current.PositionValid)
 	{
-		math::Vector3F ft_vel(PositionSetpointTripletMsg.Current.VX, PositionSetpointTripletMsg.Current.VY, 0);
+		math::Vector3F ftVelocity[PositionSetpointTripletMsg.Current.VX, PositionSetpointTripletMsg.Current.VY, 0);
 		float cos_ratio = (ft_vel * VelocitySetpoint) / (ft_vel.Length() * VelocitySetpoint.Length());
 
 		/* Only override velocity set points when uav is traveling in same
@@ -2356,7 +2356,7 @@ void MPC::ControlAuto(float dt)
 //					float acc_track = (final_cruise_speed - vel_sp_along_track_prev) / dt;
 //
 //					/* if yaw offset is large, only accelerate with 0.5m/s^2 */
-//					float acc = (fabsf(yaw_diff) >  math::radians(_mis_yaw_error.get())) ? 0.5f : _acceleration_hor.get();
+//					float acc = (fabsf(yaw_diff) >  math::radians(_mis_yaw_error.get())) ? 0.5f : ConfigTblPtr->MPC_ACC_HOR;
 //
 //					if (acc_track > acc) {
 //						vel_sp_along_track = acc * dt + vel_sp_along_track_prev;
@@ -2490,11 +2490,11 @@ void MPC::ControlAuto(float dt)
 //
 //		} else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_VELOCITY) {
 //
-//			float vel_xy_mag = sqrtf(_vel(0) * _vel(0) + _vel(1) * _vel(1));
+//			float vel_xy_mag = sqrtf(Velocity[0) * Velocity[0) + Velocity[1) * Velocity[1));
 //
 //			if (vel_xy_mag > SIGMA_NORM) {
-//				_vel_sp(0) = _vel(0) / vel_xy_mag * get_cruising_speed_xy();
-//				_vel_sp(1) = _vel(1) / vel_xy_mag * get_cruising_speed_xy();
+//				_vel_sp(0) = Velocity[0) / vel_xy_mag * get_cruising_speed_xy();
+//				_vel_sp(1) = Velocity[1) / vel_xy_mag * get_cruising_speed_xy();
 //
 //			} else {
 //				/* TODO: we should go in the direction we are heading
@@ -3779,12 +3779,12 @@ void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt)
 	/* we always want to break starting with slow deceleration */
 	if ((_user_intention_xy != brake) && (intention  == brake)) {
 
-		if (_jerk_hor_max.get() > _jerk_hor_min.get()) {
-			_manual_jerk_limit_xy = (_jerk_hor_max.get() - _jerk_hor_min.get()) / _velocity_hor_manual.get() *
-						sqrtf(_vel(0) * _vel(0) + _vel(1) * _vel(1)) + _jerk_hor_min.get();
+		if (ConfigTblPtr->MPC_JERK_MAX > ConfigTblPtr->MPC_JERK_MIN) {
+			_manual_jerk_limit_xy = (ConfigTblPtr->MPC_JERK_MAX - ConfigTblPtr->MPC_JERK_MIN) / ConfigTblPtr->MPC_VEL_MANUAL *
+						sqrtf(Velocity[0] * Velocity[0] + Velocity[1] * Velocity[1]) + ConfigTblPtr->MPC_JERK_MIN;
 
 			/* we start braking with lowest accleration */
-			_acceleration_state_dependent_xy = _deceleration_hor_slow.get();
+			_acceleration_state_dependent_xy = ConfigTblPtr->MPC_DEC_HOR_SLOW;
 
 		} else {
 
@@ -3792,13 +3792,13 @@ void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt)
 			_manual_jerk_limit_xy = 1000000.f;
 
 			/* at brake we use max acceleration */
-			_acceleration_state_dependent_xy = _acceleration_hor_max.get();
+			_acceleration_state_dependent_xy = ConfigTblPtr->ACC_HOR_MAX;
 
 		}
 
 		/* reset slew rate */
-		_vel_sp_prev(0) = _vel(0);
-		_vel_sp_prev(1) = _vel(1);
+		VelocitySetpointPrevious[0] = Velocity[0];
+		VelocitySetpointPrevious[1] = Velocity[1];
 
 	}
 
@@ -3807,7 +3807,7 @@ void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt)
 			if (intention != brake) {
 				_user_intention_xy = acceleration;
 				/* we initialize with lowest acceleration */
-				_acceleration_state_dependent_xy = _deceleration_hor_slow.get();
+				_acceleration_state_dependent_xy = ConfigTblPtr->MPC_DEC_HOR_SLOW;
 			}
 
 			break;
@@ -3815,7 +3815,7 @@ void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt)
 
 	case direction_change: {
 			/* only exit direction change if brake or aligned */
-			math::Vector2F vel_xy(_vel(0), _vel(1));
+			math::Vector2F vel_xy(Velocity[0], Velocity[1]);
 			math::Vector2F vel_xy_norm = (vel_xy.Length() > 0.0f) ? vel_xy.Normalized() : vel_xy;
 			bool stick_vel_aligned = (vel_xy_norm * stick_xy_norm > 0.0f);
 
@@ -3835,7 +3835,7 @@ void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt)
 				/* TODO: find conditions which are always continuous
 				 * only if stick input is large*/
 				if (stick_xy.Length() > 0.6f) {
-					_acceleration_state_dependent_xy = _acceleration_hor_max.get();
+					_acceleration_state_dependent_xy = ConfigTblPtr->ACC_HOR_MAX;
 				}
 			}
 
@@ -3846,8 +3846,8 @@ void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt)
 			_user_intention_xy = intention;
 
 			if (_user_intention_xy == direction_change) {
-				_vel_sp_prev(0) = _vel(0);
-				_vel_sp_prev(1) = _vel(1);
+				VelocitySetpointPrevious[0] = Velocity[0];
+				VelocitySetpointPrevious[1] = Velocity[1];
 			}
 
 			break;
@@ -3857,8 +3857,8 @@ void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt)
 			_user_intention_xy = intention;
 
 			if (_user_intention_xy == direction_change) {
-				_vel_sp_prev(0) = _vel(0);
-				_vel_sp_prev(1) = _vel(1);
+				VelocitySetpointPrevious[0] = Velocity[0];
+				VelocitySetpointPrevious[1] = Velocity[1];
 			}
 
 			break;
@@ -3872,13 +3872,13 @@ void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt)
 	case brake: {
 
 			/* limit jerk when braking to zero */
-			float jerk = (_acceleration_hor_max.get() - _acceleration_state_dependent_xy) / dt;
+			float jerk = (ConfigTblPtr->ACC_HOR_MAX - _acceleration_state_dependent_xy) / dt;
 
 			if (jerk > _manual_jerk_limit_xy) {
 				_acceleration_state_dependent_xy = _manual_jerk_limit_xy * dt + _acceleration_state_dependent_xy;
 
 			} else {
-				_acceleration_state_dependent_xy = _acceleration_hor_max.get();
+				_acceleration_state_dependent_xy = ConfigTblPtr->ACC_HOR_MAX;
 			}
 
 			break;
@@ -3887,15 +3887,15 @@ void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt)
 	case direction_change: {
 
 			/* limit acceleration linearly on stick input*/
-			_acceleration_state_dependent_xy = (_acceleration_hor.get() - _deceleration_hor_slow.get()) * stick_xy.Length() +
-							   _deceleration_hor_slow.get();
+			_acceleration_state_dependent_xy = (ConfigTblPtr->MPC_ACC_HOR - ConfigTblPtr->MPC_DEC_HOR_SLOW) * stick_xy.Length() +
+							   ConfigTblPtr->MPC_DEC_HOR_SLOW;
 			break;
 		}
 
 	case acceleration: {
 			/* limit acceleration linearly on stick input*/
-			float acc_limit  = (_acceleration_hor.get() - _deceleration_hor_slow.get()) * stick_xy.Length()
-					   + _deceleration_hor_slow.get();
+			float acc_limit  = (ConfigTblPtr->MPC_ACC_HOR - ConfigTblPtr->MPC_DEC_HOR_SLOW) * stick_xy.Length()
+					   + ConfigTblPtr->MPC_DEC_HOR_SLOW;
 
 			if (_acceleration_state_dependent_xy > acc_limit) {
 				acc_limit = _acceleration_state_dependent_xy;
@@ -3906,13 +3906,13 @@ void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt)
 		}
 
 	case deceleration: {
-			_acceleration_state_dependent_xy = _deceleration_hor_slow.get();
+			_acceleration_state_dependent_xy = ConfigTblPtr->MPC_DEC_HOR_SLOW;
 			break;
 		}
 
 	default :
-		warn_rate_limited("User intention not recognized");
-		_acceleration_state_dependent_xy = _acceleration_hor_max.get();
+		/warn_rate_limited("User intention not recognized");
+		_acceleration_state_dependent_xy = ConfigTblPtr->ACC_HOR_MAX;
 
 	}
 
