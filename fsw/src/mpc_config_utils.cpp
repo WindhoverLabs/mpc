@@ -142,6 +142,7 @@ int32 MPC::AcquireConfigPointers(void)
     if (iStatus == CFE_TBL_INFO_UPDATED)
     {
         iStatus = CFE_SUCCESS;
+        UpdateParamsFromTable();
     }
     else if(iStatus != CFE_SUCCESS)
     {
@@ -150,11 +151,6 @@ int32 MPC::AcquireConfigPointers(void)
                                  "Failed to get Config table's address (0x%08lX)",
                                  iStatus);
     }
-
-    /* TODO:  Change this to only be called if/when a NEW table is loaded, not
-     * everytime we reacquire the table pointer.
-     */
-    UpdateParamsFromTable();
 
 MPC_AcquireConfigPointers_Exit_Tag:
     return iStatus;

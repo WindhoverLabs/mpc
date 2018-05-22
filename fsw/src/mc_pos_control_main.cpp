@@ -1314,7 +1314,7 @@ MulticopterPositionControl::set_manual_acceleration_xy(matrix::Vector2f &stick_x
 }
 
 void
-MulticopterPositionControl::control_manual(float dt) //TODO
+MulticopterPositionControl::control_manual(float dt) //DONE
 {
 	/* Entering manual control from non-manual control mode, reset alt/pos setpoints */
 	if (_mode_auto) {
@@ -1467,7 +1467,7 @@ MulticopterPositionControl::control_manual(float dt) //TODO
 }
 
 void
-MulticopterPositionControl::control_non_manual(float dt)
+MulticopterPositionControl::control_non_manual(float dt) // DONE
 {
 	/* select control source */
 	if (_control_mode.flag_control_offboard_enabled) {
@@ -1550,7 +1550,7 @@ MulticopterPositionControl::control_non_manual(float dt)
 }
 
 void
-MulticopterPositionControl::control_offboard(float dt)
+MulticopterPositionControl::control_offboard(float dt) // DONE
 {
 	if (_pos_sp_triplet.current.valid) {
 
@@ -1661,7 +1661,7 @@ MulticopterPositionControl::control_offboard(float dt)
 }
 
 void
-MulticopterPositionControl::vel_sp_slewrate(float dt)
+MulticopterPositionControl::vel_sp_slewrate(float dt) // DONE
 {
 	matrix::Vector2f vel_sp_xy(_vel_sp(0), _vel_sp(1));
 	matrix::Vector2f vel_sp_prev_xy(_vel_sp_prev(0), _vel_sp_prev(1));
@@ -1693,7 +1693,7 @@ MulticopterPositionControl::vel_sp_slewrate(float dt)
 
 bool
 MulticopterPositionControl::cross_sphere_line(const math::Vector<3> &sphere_c, const float sphere_r,
-		const math::Vector<3> &line_a, const math::Vector<3> &line_b, math::Vector<3> &res)
+		const math::Vector<3> &line_a, const math::Vector<3> &line_b, math::Vector<3> &res) // DONE
 {
 	/* project center of sphere on line */
 	/* normalized AB */
@@ -1741,7 +1741,7 @@ MulticopterPositionControl::cross_sphere_line(const math::Vector<3> &sphere_c, c
 	}
 }
 
-void MulticopterPositionControl::control_auto(float dt)
+void MulticopterPositionControl::control_auto(float dt) // DONE
 {
 	/* reset position setpoint on AUTO mode activation or if we are not in MC mode */
 	if (!_mode_auto || !_vehicle_status.is_rotary_wing) {
@@ -2312,7 +2312,7 @@ void MulticopterPositionControl::control_auto(float dt)
 }
 
 void
-MulticopterPositionControl::update_velocity_derivative()
+MulticopterPositionControl::update_velocity_derivative() // DONE
 {
 	/* Update velocity derivative,
 	 * independent of the current flight mode
@@ -2373,7 +2373,7 @@ MulticopterPositionControl::update_velocity_derivative()
 }
 
 void
-MulticopterPositionControl::do_control(float dt)
+MulticopterPositionControl::do_control(float dt) // DONE
 {
 	/* by default, run position/altitude controller. the control_* functions
 	 * can disable this and run velocity controllers directly in this cycle */
@@ -2405,7 +2405,7 @@ MulticopterPositionControl::do_control(float dt)
 }
 
 void
-MulticopterPositionControl::control_position(float dt)
+MulticopterPositionControl::control_position(float dt) // DONE
 {
 	calculate_velocity_setpoint(dt);
 
@@ -2519,7 +2519,7 @@ MulticopterPositionControl::calculate_velocity_setpoint(float dt)
 }
 
 void
-MulticopterPositionControl::calculate_thrust_setpoint(float dt)
+MulticopterPositionControl::calculate_thrust_setpoint(float dt) // DONE
 {
 	/* reset integrals if needed */
 	if (_control_mode.flag_control_climb_rate_enabled) {

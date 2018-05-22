@@ -208,6 +208,9 @@ public:
 	systemlib::Hysteresis _manual_direction_change_hysteresis;
 	math::LowPassFilter2p _filter_manual_pitch;
 	math::LowPassFilter2p _filter_manual_roll;
+	bool _triplet_lat_lon_finite;
+	math::Vector3F PreviousPositionSetpoint;
+	float _man_yaw_offset; /**< current yaw offset in manual mode */
 
     /************************************************************************/
     /** \brief Multicopter Position Control (MPC) application entry point
@@ -502,6 +505,7 @@ public:
 			const math::Vector2F &unit_current_to_next);
 	void SetManualAccelerationZ(float &max_acceleration, const float stick_z, const float dt);
 	void SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt);
+	bool ManualWantsTakeoff(void);
 
 public:
     /************************************************************************/

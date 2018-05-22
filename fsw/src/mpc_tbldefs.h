@@ -185,30 +185,7 @@ typedef struct
      */
     float Z_VEL_D;
 
-    /**
-     * Maximum vertical ascent velocity
-     *
-     * Maximum vertical velocity in AUTO mode and endpoint for stabilized modes (ALTCTRL, POSCTRL).
-     *
-     * @unit m/s
-     * @min 0.5
-     * @max 8.0
-     * @decimal 1
-     * @group Multicopter Position Control
-     */
-    float Z_VEL_MAX_UP;
 
-    /**
-     * Maximum vertical descent velocity
-     *
-     * Maximum vertical velocity in AUTO mode and endpoint for stabilized modes (ALTCTRL, POSCTRL).
-     *
-     * @unit m/s
-     * @min 0.5
-     * @max 4.0
-     * @group Multicopter Position Control
-     */
-    float Z_VEL_MAX_DN;
 
     /**
      * Vertical velocity feed forward
@@ -361,15 +338,7 @@ typedef struct
      */
     float TILTMAX_LND;
 
-    /**
-     * Landing descend rate
-     *
-     * @unit m/s
-     * @min 0.2
-     * @decimal 1
-     * @group Multicopter Position Control
-     */
-    float LAND_SPEED;
+
 
     /**
      * Takeoff climb rate
@@ -677,6 +646,65 @@ typedef struct
      * @group Multicopter Position Control
      */
     float MPC_VEL_MANUAL;
+
+    /**
+     * Maximum vertical ascent velocity
+     *
+     * Maximum vertical velocity in AUTO mode and endpoint for stabilized modes (ALTCTRL, POSCTRL).
+     *
+     * @unit m/s
+     * @min 0.5
+     * @max 8.0
+     * @decimal 1
+     * @group Multicopter Position Control
+     */
+    float Z_VEL_MAX_UP;
+
+    /**
+     * Maximum vertical descent velocity
+     *
+     * Maximum vertical velocity in AUTO mode and endpoint for stabilized modes (ALTCTRL, POSCTRL).
+     *
+     * @unit m/s
+     * @min 0.5
+     * @max 4.0
+     * @group Multicopter Position Control
+     */
+    float Z_VEL_MAX_DN;
+
+    /**
+     * Landing descend rate
+     *
+     * @unit m/s
+     * @min 0.2
+     * @decimal 1
+     * @group Multicopter Position Control
+     */
+    float LAND_SPEED;
+
+    /**
+     * Acceptance Radius
+     *
+     * Default acceptance radius, overridden by acceptance radius of waypoint if set.
+     * For fixed wing the L1 turning distance is used for horizontal acceptance.
+     *
+     * @unit m
+     * @min 0.05
+     * @max 200.0
+     * @decimal 1
+     * @increment 0.5
+     * @group Mission
+     */
+    float NAV_ACC_RAD;
+
+    /** NAV_MIS_YAW_ERR
+     *
+     *  \brief Max yaw error in degrees needed for waypoint heading acceptance.
+     *
+     *  \par Limits:
+     *       Min > Max (incr.) 0 > 90 , default 12.0.
+     */
+    float NAV_MIS_YAW_ERR;
 
 
 } MPC_ConfigTbl_t;
