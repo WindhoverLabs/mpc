@@ -1043,7 +1043,7 @@ MulticopterPositionControl::get_cruising_speed_xy() //DONE
 }
 
 void
-MulticopterPositionControl::set_manual_acceleration_z(float &max_acceleration, const float stick_z, const float dt)
+MulticopterPositionControl::set_manual_acceleration_z(float &max_acceleration, const float stick_z, const float dt) //DONE
 {
 
 
@@ -1104,7 +1104,7 @@ MulticopterPositionControl::set_manual_acceleration_z(float &max_acceleration, c
 }
 
 void
-MulticopterPositionControl::set_manual_acceleration_xy(matrix::Vector2f &stick_xy, const float dt)
+MulticopterPositionControl::set_manual_acceleration_xy(matrix::Vector2f &stick_xy, const float dt) // DONE
 {
 
 	/*
@@ -1314,7 +1314,7 @@ MulticopterPositionControl::set_manual_acceleration_xy(matrix::Vector2f &stick_x
 }
 
 void
-MulticopterPositionControl::control_manual(float dt)
+MulticopterPositionControl::control_manual(float dt) //TODO
 {
 	/* Entering manual control from non-manual control mode, reset alt/pos setpoints */
 	if (_mode_auto) {

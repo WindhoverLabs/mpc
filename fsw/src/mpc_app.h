@@ -59,6 +59,8 @@ extern "C" {
 #include "geo/geo.h"
 #include "math/Derivative.hpp"
 #include "math/Vector2F.hpp"
+#include "systemlib/hysteresis.h"
+#include "math/filters/LowPassFilter2p.hpp"
 
 /************************************************************************
  ** Local Defines
@@ -203,6 +205,9 @@ public:
 	float _manual_jerk_limit_xy; /**< jerk limit in manual mode dependent on stick input */
 	float _manual_jerk_limit_z; /**< jerk limit in manual mode in z */
 	float _z_derivative; /**< velocity in z that agrees with position rate */
+	systemlib::Hysteresis _manual_direction_change_hysteresis;
+	math::LowPassFilter2p _filter_manual_pitch;
+	math::LowPassFilter2p _filter_manual_roll;
 
     /************************************************************************/
     /** \brief Multicopter Position Control (MPC) application entry point
