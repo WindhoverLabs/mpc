@@ -185,7 +185,30 @@ typedef struct
      */
     float Z_VEL_D;
 
+    /**
+     * Maximum vertical ascent velocity
+     *
+     * Maximum vertical velocity in AUTO mode and endpoint for stabilized modes (ALTCTRL, POSCTRL).
+     *
+     * @unit m/s
+     * @min 0.5
+     * @max 8.0
+     * @decimal 1
+     * @group Multicopter Position Control
+     */
+    float Z_VEL_MAX_UP;
 
+    /**
+     * Maximum vertical descent velocity
+     *
+     * Maximum vertical velocity in AUTO mode and endpoint for stabilized modes (ALTCTRL, POSCTRL).
+     *
+     * @unit m/s
+     * @min 0.5
+     * @max 4.0
+     * @group Multicopter Position Control
+     */
+    float Z_VEL_MAX_DN;
 
     /**
      * Vertical velocity feed forward
@@ -338,7 +361,15 @@ typedef struct
      */
     float TILTMAX_LND;
 
-
+    /**
+     * Landing descend rate
+     *
+     * @unit m/s
+     * @min 0.2
+     * @decimal 1
+     * @group Multicopter Position Control
+     */
+    float LAND_SPEED;
 
     /**
      * Takeoff climb rate
@@ -416,7 +447,17 @@ typedef struct
      */
     float VELD_LP;
 
-
+    /**
+     * Maximum horizonal acceleration in velocity controlled modes
+     *
+     * @unit m/s/s
+     * @min 2.0
+     * @max 15.0
+     * @increment 1
+     * @decimal 2
+     * @group Multicopter Position Control
+     */
+    float ACC_HOR_MAX;
 
     /**
      * Maximum horizonal braking deceleration in velocity controlled modes
@@ -430,7 +471,29 @@ typedef struct
      */
     float DEC_HOR_MAX;
 
+    /**
+     * Maximum vertical acceleration in velocity controlled modes upward
+     *
+     * @unit m/s/s
+     * @min 2.0
+     * @max 15.0
+     * @increment 1
+     * @decimal 2
+     * @group Multicopter Position Control
+     */
+    float ACC_UP_MAX;
 
+    /**
+     * Maximum vertical acceleration in velocity controlled modes down
+     *
+     * @unit m/s/s
+     * @min 2.0
+     * @max 15.0
+     * @increment 1
+     * @decimal 2
+     * @group Multicopter Position Control
+     */
+    float ACC_DOWN_MAX;
 
     /**
      * Altitude control mode, note mode 1 only tested with LPE
@@ -525,58 +588,6 @@ typedef struct
 
     float MIS_LTRMIN_ALT;
 
-
-
-
-    /**
-     * Maximum vertical acceleration in velocity controlled modes upward
-     *
-     * @unit m/s/s
-     * @min 2.0
-     * @max 15.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
-     */
-    float ACC_UP_MAX;
-
-    /**
-     * Maximum vertical acceleration in velocity controlled modes down
-     *
-     * @unit m/s/s
-     * @min 2.0
-     * @max 15.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
-     */
-    float ACC_DOWN_MAX;
-
-    /**
-     * Maximum horizonal acceleration in velocity controlled modes
-     *
-     * @unit m/s/s
-     * @min 2.0
-     * @max 15.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
-     */
-    float ACC_HOR_MAX;
-
-    /**
-     * Acceleration for auto and for manual
-     *
-     * @unit m/s/s
-     * @min 2.0
-     * @max 15.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
-     */
-
-    float MPC_ACC_HOR;
-
     /**
      * Cruise speed when angle prev-current/current-next setpoint
      * is 90 degrees. It should be lower than MPC_XY_CRUISE.
@@ -646,41 +657,6 @@ typedef struct
      * @group Multicopter Position Control
      */
     float MPC_VEL_MANUAL;
-
-    /**
-     * Maximum vertical ascent velocity
-     *
-     * Maximum vertical velocity in AUTO mode and endpoint for stabilized modes (ALTCTRL, POSCTRL).
-     *
-     * @unit m/s
-     * @min 0.5
-     * @max 8.0
-     * @decimal 1
-     * @group Multicopter Position Control
-     */
-    float Z_VEL_MAX_UP;
-
-    /**
-     * Maximum vertical descent velocity
-     *
-     * Maximum vertical velocity in AUTO mode and endpoint for stabilized modes (ALTCTRL, POSCTRL).
-     *
-     * @unit m/s
-     * @min 0.5
-     * @max 4.0
-     * @group Multicopter Position Control
-     */
-    float Z_VEL_MAX_DN;
-
-    /**
-     * Landing descend rate
-     *
-     * @unit m/s
-     * @min 0.2
-     * @decimal 1
-     * @group Multicopter Position Control
-     */
-    float LAND_SPEED;
 
     /**
      * Acceptance Radius
