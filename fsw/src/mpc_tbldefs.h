@@ -659,6 +659,18 @@ typedef struct
     float MPC_VEL_MANUAL;
 
     /**
+     * Acceleration for auto and for manual
+     *
+     * @unit m/s/s
+     * @min 2.0
+     * @max 15.0
+     * @increment 1
+     * @decimal 2
+     * @group Multicopter Position Control
+     */
+    float MPC_ACC_HOR;
+
+    /**
      * Acceptance Radius
      *
      * Default acceptance radius, overridden by acceptance radius of waypoint if set.
