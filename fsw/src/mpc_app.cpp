@@ -480,14 +480,14 @@ int32 MPC::RcvSchPipeMsg(int32 iBlocking)
     }
     else if (iStatus == CFE_SB_NO_MESSAGE)
     {
-        /* TODO: If there's no incoming message, you can do something here, or 
+        /* If there's no incoming message, you can do something here, or
          * nothing.  Note, this section is dead code only if the iBlocking arg
          * is CFE_SB_PEND_FOREVER. */
         iStatus = CFE_SUCCESS;
     }
     else if (iStatus == CFE_SB_TIME_OUT)
     {
-        /* TODO: If there's no incoming message within a specified time (via the
+        /* If there's no incoming message within a specified time (via the
          * iBlocking arg, you can do something here, or nothing.  
          * Note, this section is dead code only if the iBlocking arg
          * is CFE_SB_PEND_FOREVER. */
@@ -954,6 +954,18 @@ void MPC::Execute(void) // Updated
 	{
 		SendVehicleAttitudeSetpointMsg();
 	}
+
+	OS_printf("Position = [%f, %f, %f]\n", Position[0], Position[1], Position[2]);
+	OS_printf("PositionSetpoint = [%f, %f, %f]\n", PositionSetpoint[0], PositionSetpoint[1], PositionSetpoint[2]);
+	OS_printf("CurrentPositionSetpoint = [%f, %f, %f]\n", CurrentPositionSetpoint[0], CurrentPositionSetpoint[1], CurrentPositionSetpoint[2]);
+	OS_printf("Velocity = [%f, %f, %f]\n", Velocity[0], Velocity[1], Velocity[2]);
+	OS_printf("VelocitySetpoint = [%f, %f, %f]\n", VelocitySetpoint[0], VelocitySetpoint[1], VelocitySetpoint[2]);
+	OS_printf("_vel_max_xy = %f\n", _vel_max_xy);
+	OS_printf("_acceleration_state_dependent_xy = %f\n", _acceleration_state_dependent_xy);
+	OS_printf("_user_intention_xy = %i\n", _user_intention_xy);
+	OS_printf("_user_intention_z = %i\n", _user_intention_z);
+
+
 }
 
 void MPC::UpdateRef(void) // Updated
