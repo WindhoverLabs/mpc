@@ -961,8 +961,6 @@ void MPC::Execute(void) // Updated
 //	OS_printf("VelocitySetpoint = [%f, %f, %f]\n", VelocitySetpoint[0], VelocitySetpoint[1], VelocitySetpoint[2]);
 //	OS_printf("_acceleration_state_dependent_xy = %f\n", _acceleration_state_dependent_xy);
 //	OS_printf("_acceleration_state_dependent_z = %f\n", _acceleration_state_dependent_z);
-	OS_printf("_user_intention_xy = %i\n", _user_intention_xy);
-//	OS_printf("_user_intention_z = %i\n", _user_intention_z);
 
 
 }
@@ -1088,7 +1086,7 @@ void MPC::DoControl(float dt) // Updated
 	 * can disable this and run velocity controllers directly in this cycle */
 	RunPosControl = true;
 	RunAltControl = true;
-
+    
 	if (VehicleControlModeMsg.ControlManualEnabled)
 	{
 		/* Manual control */
@@ -1170,94 +1168,45 @@ void MPC::GenerateAttitudeSetpoint(float dt) // UPDATED
 	/* Control roll and pitch directly if no aiding velocity controller is active. */
 	if (!VehicleControlModeMsg.ControlVelocityEnabled)
 	{
-		/*
-		 * Input mapping for roll & pitch setpoints
-		 * ----------------------------------------
-		 * This simplest thing to do is map the y & x inputs directly to roll and pitch, and scale according to the max
-		 * tilt angle.
-		 * But this has several issues:
-		 * - The maximum tilt angle cannot easily be restricted. By limiting the roll and pitch separately,
-		 *   it would be possible to get to a higher tilt angle by combining roll and pitch (the difference is
-		 *   around 15 degrees maximum, so quite noticeable). Limiting this angle is not simple in roll-pitch-space,
-		 *   it requires to limit the tilt angle = acos(cos(roll) * cos(pitch)) in a meaningful way (eg. scaling both
-		 *   roll and pitch).
-		 * - Moving the stick diagonally, such that |x| = |y|, does not move the vehicle towards a 45 degrees angle.
-		 *   The direction angle towards the max tilt in the XY-plane is atan(1/cos(x)). Which means it even depends
-		 *   on the tilt angle (for a tilt angle of 35 degrees, it's off by about 5 degrees).
-		 *
-		 * So instead we control the following 2 angles:
-		 * - tilt angle, given by sqrt(x*x + y*y)
-		 * - the direction of the maximum tilt in the XY-plane, which also defines the direction of the motion
-		 *
-		 * This allows a simple limitation of the tilt angle, the vehicle flies towards the direction that the stick
-		 * points to, and changes of the stick input are linear.
-		 */
-		const float x = ManualControlSetpointMsg.X * math::radians(ConfigTblPtr->MAN_TILT_MAX);
-		const float y = ManualControlSetpointMsg.Y * math::radians(ConfigTblPtr->MAN_TILT_MAX);
+        VehicleAttitudeSetpointMsg.RollBody = ManualControlSetpointMsg.Y * math::radians(ConfigTblPtr->MAN_TILT_MAX);
+		VehicleAttitudeSetpointMsg.PitchBody = -ManualControlSetpointMsg.X * math::radians(ConfigTblPtr->MAN_TILT_MAX);
 
-		// we want to fly towards the direction of (x, y), so we use a perpendicular axis angle vector in the XY-plane
-		math::Vector2F v = math::Vector2F(y, -x);
-		float v_norm = v.Length();// the norm of v defines the tilt angle. Same as length()
+		/* Only if optimal recovery is not used, modify roll/pitch. */
+		if (ConfigTblPtr->VT_OPT_RECOV_EN <= 0)
+		{
+			/* Construct attitude setpoint rotation matrix. modify the setpoints for roll
+			 * and pitch such that they reflect the user's intention even if a yaw error
+			 * (yaw_sp - yaw) is present. In the presence of a yaw error constructing a rotation matrix
+			 * from the pure euler angle setpoints will lead to unexpected attitude behaviour from
+			 * the user's view as the euler angle sequence uses the  yaw setpoint and not the current
+			 * heading of the vehicle.
+			 */
 
-		if (v_norm > math::radians(ConfigTblPtr->MAN_TILT_MAX)) { // limit to the configured maximum tilt angle
-			v = v * math::radians(ConfigTblPtr->MAN_TILT_MAX) / v_norm;
-		}
-
-		math::Quaternion q_sp_rpy = math::Vector3F(v[0], v[1], 0.0f);// = AxisAngle(v[0], v[1], 0.0f);
-		// The axis angle can change the yaw as well (but only at higher tilt angles. Note: we're talking
-		// about the world frame here, in terms of body frame the yaw rate will be unaffected).
-		// This the the formula by how much the yaw changes:
-		//   let a := tilt angle, b := atan(y/x) (direction of maximum tilt)
-		//   yaw = atan(-2 * sin(b) * cos(b) * sin^2(a/2) / (1 - 2 * cos^2(b) * sin^2(a/2))).
-		math::Euler euler_sp = math::Dcm(q_sp_rpy);
-		// Since the yaw setpoint is integrated, we extract the offset here,
-		// so that we can remove it before the next iteration
-		_man_yaw_offset = euler_sp[2];
-
-		// update the setpoints
-		VehicleAttitudeSetpointMsg.RollBody = euler_sp[0];
-		VehicleAttitudeSetpointMsg.PitchBody = euler_sp[1];
-		VehicleAttitudeSetpointMsg.YawBody += euler_sp[2];
-
-		/* only if optimal recovery is not used, modify roll/pitch */
-		if (!(VehicleStatusMsg.IsVtol && ConfigTblPtr->VT_OPT_RECOV_EN)) {
-			// construct attitude setpoint rotation matrix. modify the setpoints for roll
-			// and pitch such that they reflect the user's intention even if a yaw error
-			// (yaw_sp - yaw) is present. In the presence of a yaw error constructing a rotation matrix
-			// from the pure euler angle setpoints will lead to unexpected attitude behaviour from
-			// the user's view as the euler angle sequence uses the  yaw setpoint and not the current
-			// heading of the vehicle.
-			// The effect of that can be seen with:
-			// - roll/pitch into one direction, keep it fixed (at high angle)
-			// - apply a fast yaw rotation
-			// - look at the roll and pitch angles: they should stay pretty much the same as when not yawing
-
-			// calculate our current yaw error
+			/* Calculate our current yaw error. */
 			float yaw_error = _wrap_pi(VehicleAttitudeSetpointMsg.YawBody - Yaw);
 
-			// compute the vector obtained by rotating a z unit vector by the rotation
+			// Compute the vector obtained by rotating a z unit vector by the rotation
 			// given by the roll and pitch commands of the user
 			math::Vector3F zB = {0, 0, 1};
-			math::Matrix3F3 R_sp_roll_pitch;
-			R_sp_roll_pitch.FromEuler(VehicleAttitudeSetpointMsg.RollBody, VehicleAttitudeSetpointMsg.PitchBody, 0);
+			math::Matrix3F3 R_sp_roll_pitch = math::Matrix3F3::FromEuler(VehicleAttitudeSetpointMsg.RollBody, VehicleAttitudeSetpointMsg.PitchBody, 0);
 			math::Vector3F z_roll_pitch_sp = R_sp_roll_pitch * zB;
 
-
-			// transform the vector into a new frame which is rotated around the z axis
-			// by the current yaw error. this vector defines the desired tilt when we look
-			// into the direction of the desired heading
-			math::Matrix3F3 R_yaw_correction;
-			R_yaw_correction.FromEuler(0.0f, 0.0f, -yaw_error);
+			/* Transform the vector into a new frame which is rotated around the z axis
+			 * by the current yaw error. this vector defines the desired tilt when we look
+			 * into the direction of the desired heading.
+			 */
+			math::Matrix3F3 R_yaw_correction = math::Matrix3F3::FromEuler(0.0f, 0.0f, -yaw_error);
 			z_roll_pitch_sp = R_yaw_correction * z_roll_pitch_sp;
 
-			// use the formula z_roll_pitch_sp = R_tilt * [0;0;1]
-			// R_tilt is computed from_euler; only true if cos(roll) not equal zero
-			// -> valid if roll is not +-pi/2;
+			/* Use the formula z_roll_pitch_sp = R_tilt * [0;0;1]
+			 * R_tilt is computed from_euler; only true if cos(roll) not equal zero
+			 * -> valid if roll is not +-pi/2;
+			 */
 			VehicleAttitudeSetpointMsg.RollBody = -asinf(z_roll_pitch_sp[1]);
 			VehicleAttitudeSetpointMsg.PitchBody = atan2f(z_roll_pitch_sp[0], z_roll_pitch_sp[2]);
 		}
 
-		/* copy quaternion setpoint to attitude setpoint topic */
+		/* Copy quaternion setpoint to attitude setpoint topic. */
 		math::Quaternion q_sp(VehicleAttitudeSetpointMsg.RollBody, VehicleAttitudeSetpointMsg.PitchBody, VehicleAttitudeSetpointMsg.YawBody);
 		q_sp.copyTo(VehicleAttitudeSetpointMsg.Q_D);
 		VehicleAttitudeSetpointMsg.Q_D_Valid = true;
@@ -1323,7 +1272,7 @@ void MPC::ControlManual(float dt) //UPDATED
 		/* Reset position setpoint to current position if needed */
 		ResetPosSetpoint();
 	}
-
+	
 	/* Prepare yaw to rotate into NED frame */
 	float yaw_input_frame = VehicleControlModeMsg.ControlFixedHdgEnabled ? YawTakeoff : VehicleAttitudeSetpointMsg.YawBody;
 
