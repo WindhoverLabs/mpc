@@ -436,6 +436,7 @@ int32 MPC::RcvSchPipeMsg(int32 iBlocking)
                 break;
 
             case PX4_CONTROL_STATE_MID:
+            	ProcessControlStateMsg();
                 memcpy(&ControlStateMsg, MsgPtr, sizeof(ControlStateMsg));
                 break;
 
@@ -759,7 +760,37 @@ void MPC::ProcessVehicleLocalPositionMsg(void)// Updated
 	XY_ResetCounter = VehicleLocalPositionMsg.XY_ResetCounter;
 }
 
+void MPC::ProcessControlStateMsg(void)
+{
+	math::Quaternion q_att(
+			ControlStateMsg.Q[0],
+			ControlStateMsg.Q[1],
+			ControlStateMsg.Q[2],
+			ControlStateMsg.Q[3]);
 
+	Rotation = q_att.RotationMatrix();
+	math::Vector3F euler_angles;
+
+	euler_angles = Rotation.ToEuler();
+
+	Yaw = euler_angles[2];
+
+	if(VehicleControlModeMsg.ControlManualEnabled)
+	{
+		if (HeadingResetCounter != ControlStateMsg.QuatResetCounter)
+		{
+			HeadingResetCounter = ControlStateMsg.QuatResetCounter;
+			math::Quaternion delta_q(ControlStateMsg.DeltaQReset[0],
+					ControlStateMsg.DeltaQReset[1],
+					ControlStateMsg.DeltaQReset[2],
+					ControlStateMsg.DeltaQReset[3]);
+
+			// we only extract the heading change from the delta quaternion
+			math::Vector3F delta_euler = delta_q.ToEuler();
+			VehicleAttitudeSetpointMsg.YawBody += delta_euler[2];
+		}
+	}
+}
 
 void MPC::ProcessPositionSetpointTripletMsg(void)// Updated
 {
