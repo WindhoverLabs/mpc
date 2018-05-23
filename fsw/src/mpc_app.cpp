@@ -835,25 +835,46 @@ void MPC::Execute(void)
 	/* Set default max velocity in xy to vel_max */
 	VelMaxXY = ConfigTblPtr->XY_VEL_MAX;
 
-	if (VehicleControlModeMsg.Armed && !WasArmed) {
-		/* Reset setpoints and integrals on arming. */
+	/* reset flags when landed */
+	if (VehicleLandDetectedMsg.Landed) {
 		ResetPositionSetpoint = true;
 		ResetAltitudeSetpoint = true;
 		DoResetAltPos = true;
-		VelocitySetpointPrevious.Zero();
+		ModeAuto = false;
+		PositionHoldEngaged = false;
+		AltitudeHoldEngaged = false;
+		RunPosControl = true;
+		RunAltControl = true;
 		ResetIntZ = true;
 		ResetIntXY = true;
 		ResetYawSetpoint = true;
+		HoldOffboardXY = false;
+		HoldOffboardZ = false;
+		InLanding = false;
+		LndReachedGround = false;
+
+		/* also reset previous setpoints */
 		YawTakeoff = Yaw;
+		VelocitySetpointPrevious.Zero();
+		VelocityPrevious.Zero();
+
+		/* make sure attitude setpoint output "disables" attitude control
+		 * TODO: we need a defined setpoint to do this properly especially when adjusting the mixer */
+		VehicleAttitudeSetpointMsg.Thrust = 0.0f;
+		VehicleAttitudeSetpointMsg.Timestamp = PX4LIB_GetPX4TimeUs();
 	}
 
-	WasArmed = VehicleControlModeMsg.Armed;
-
-	/* Switch to smooth takeoff if we got out of landed state */
-	if (!VehicleLandDetectedMsg.Landed && WasLanded)
-	{
+	if (!InTakeoff && VehicleLandDetectedMsg.Landed && VehicleControlModeMsg.Armed &&
+		(InAutoTakeoff() || ManualWantsTakeoff())) {
 		InTakeoff = true;
+		// This ramp starts negative and goes to positive later because we want to
+		// be as smooth as possible. If we start at 0, we alrady jump to hover throttle.
 		TakeoffVelLimit = -0.5f;
+	}
+
+	else if (!VehicleControlModeMsg.Armed) {
+		// If we're disarmed and for some reason were in a smooth takeoff, we reset that.
+		InTakeoff = false;
 	}
 
 	/* Set triplets to invalid if we just landed */
@@ -910,7 +931,6 @@ void MPC::Execute(void)
 		ModeAuto = false;
 		ResetIntZ = true;
 		ResetIntXY = true;
-		LimitVelXY = false;
 
 		/* Store last velocity in case a mode switch to position control occurs */
 		VelocitySetpointPrevious = Velocity;
@@ -920,7 +940,6 @@ void MPC::Execute(void)
 	if (VehicleControlModeMsg.ControlManualEnabled && VehicleControlModeMsg.ControlAttitudeEnabled)
 	{
 		GenerateAttitudeSetpoint(dt);
-
 	}
 	else
 	{
@@ -931,31 +950,25 @@ void MPC::Execute(void)
 	/* Update previous velocity for velocity controller D part */
 	VelocityPrevious = Velocity;
 
-	/* Publish attitude setpoint
-	 * Do not publish if offboard is enabled but position/velocity/accel
-	 * control is disabled, in this case the attitude setpoint is
-	 * published by the mavlink app. Also do not publish if the vehicle is a
-	 * VTOL and it's just doing a transition (the VTOL attitude control
-	 * module will generate attitude setpoints for the transition).
+	/* publish attitude setpoint
+	 * Do not publish if
+	 * - offboard is enabled but position/velocity/accel control is disabled,
+	 * in this case the attitude setpoint is published by the mavlink app.
+	 * - if the vehicle is a VTOL and it's just doing a transition (the VTOL attitude control module will generate
+	 * attitude setpoints for the transition).
+	 * - if not armed
 	 */
-	if (!(VehicleControlModeMsg.ControlOffboardEnabled &&
+	if (VehicleControlModeMsg.Armed &&
+		(!(VehicleControlModeMsg.ControlOffboardEnabled &&
 	      !(VehicleControlModeMsg.ControlPositionEnabled ||
 	    		  VehicleControlModeMsg.ControlVelocityEnabled ||
-				  VehicleControlModeMsg.ControlAccelerationEnabled)))
+				  VehicleControlModeMsg.ControlAccelerationEnabled))))
 	{
-
 		SendVehicleAttitudeSetpointMsg();
 	}
-
-	/* Reset altitude controller integral (hovering throttle) to manual
-	 * throttle after manual throttle control */
-	ResetIntZManual = VehicleControlModeMsg.Armed && VehicleControlModeMsg.ControlManualEnabled
-			      && !VehicleControlModeMsg.ControlClimbRateEnabled;
 }
 
-
-
-void MPC::UpdateRef(void)
+void MPC::UpdateRef(void) // Updated
 {
 	/* The reference point is only allowed to change when the vehicle is in standby state which is the
 	normal state when the estimator origin is set. Changing reference point in flight causes large controller
@@ -1101,7 +1114,7 @@ void MPC::DoControl(float dt) // Updated
 
 
 
-void MPC::GenerateAttitudeSetpoint(float dt)
+void MPC::GenerateAttitudeSetpoint(float dt) // UPDATED
 {
 	// yaw setpoint is integrated over time, but we don't want to integrate the offset's
 	VehicleAttitudeSetpointMsg.YawBody -= _man_yaw_offset;
@@ -1188,7 +1201,7 @@ void MPC::GenerateAttitudeSetpoint(float dt)
 			v = v * ConfigTblPtr->MAN_TILT_MAX / v_norm;
 		}
 
-		math::Quaternion q_sp_rpy(0.f, 0.f, 0.f,0.f);// = AxisAngle(v[0], v[1], 0.0f);
+		math::Quaternion q_sp_rpy = math::Vector3F(v[0], v[1], 0.0f);// = AxisAngle(v[0], v[1], 0.0f);
 		// The axis angle can change the yaw as well (but only at higher tilt angles. Note: we're talking
 		// about the world frame here, in terms of body frame the yaw rate will be unaffected).
 		// This the the formula by how much the yaw changes:
@@ -1243,29 +1256,10 @@ void MPC::GenerateAttitudeSetpoint(float dt)
 		}
 
 		/* copy quaternion setpoint to attitude setpoint topic */
-
-		/* TODO fix super ghetto conversion to avoid writting new math lib */
-		math::Quaternion converta(VehicleAttitudeSetpointMsg.RollBody, VehicleAttitudeSetpointMsg.PitchBody, VehicleAttitudeSetpointMsg.YawBody);
-		math::Dcm convertb(converta);
-		math::Euler q_euler(convertb);
-//		math::Quaternion q_sp = (math::Matrix3F3)q_euler;
-//		q_sp.copyTo(VehicleAttitudeSetpointMsg.Q_D);
-//		VehicleAttitudeSetpointMsg.Q_D_Valid = true;
+		math::Quaternion q_sp(VehicleAttitudeSetpointMsg.RollBody, VehicleAttitudeSetpointMsg.PitchBody, VehicleAttitudeSetpointMsg.YawBody);
+		q_sp.copyTo(VehicleAttitudeSetpointMsg.Q_D);
+		VehicleAttitudeSetpointMsg.Q_D_Valid = true;
 	}
-
-//	// Only switch the landing gear up if we are not landed and if
-//	// the user switched from gear down to gear up.
-//	// If the user had the switch in the gear up position and took off ignore it
-//	// until he toggles the switch to avoid retracting the gear immediately on takeoff.
-//	if (_manual.gear_switch == manual_control_setpoint_s::SWITCH_POS_ON && _gear_state_initialized &&
-//	    !_vehicle_land_detected.landed) {
-//		VehicleAttitudeSetpointMsg.landing_gear = vehicle_attitude_setpoint_s::LANDING_GEAR_UP;
-//
-//	} else if (_manual.gear_switch == manual_control_setpoint_s::SWITCH_POS_OFF) {
-//		VehicleAttitudeSetpointMsg.landing_gear = vehicle_attitude_setpoint_s::LANDING_GEAR_DOWN;
-//		// Switching the gear off does put it into a safe defined state
-//		_gear_state_initialized = true;
-//	}
 
 	VehicleAttitudeSetpointMsg.Timestamp = PX4LIB_GetPX4TimeUs();
 }
@@ -1575,7 +1569,7 @@ void MPC::ControlNonManual(float dt) // UPDATED
 
 
 
-float MPC::ThrottleCurve(float ctl, float ctr)
+float MPC::ThrottleCurve(float ctl, float ctr) // GOOD
 {
 	float result;
 
@@ -1595,7 +1589,7 @@ float MPC::ThrottleCurve(float ctl, float ctr)
 
 
 
-void MPC::ResetPosSetpoint(void)
+void MPC::ResetPosSetpoint(void) // DONE
 {
 	if (ResetPositionSetpoint)
 	{
@@ -1611,7 +1605,7 @@ void MPC::ResetPosSetpoint(void)
 
 
 
-void MPC::ResetAltSetpoint(void)
+void MPC::ResetAltSetpoint(void) // DONE
 {
 	if (ResetAltitudeSetpoint)
 	{
@@ -1771,7 +1765,7 @@ void MPC::ControlOffboard(float dt) // UPDATED
 	}
 }
 
-void MPC::ControlAuto(float dt)
+void MPC::ControlAuto(float dt) // DONE
 {
 
 	/* Reset position setpoint on AUTO mode activation or if we are not in
@@ -2357,7 +2351,7 @@ void MPC::ControlAuto(float dt)
 	}
 }
 
-void MPC::CalculateVelocitySetpoint(float dt)
+void MPC::CalculateVelocitySetpoint(float dt) // DONE
 {
 	/* Run position & altitude controllers, if enabled (otherwise use already
 	 * computed velocity setpoints) */
@@ -2476,7 +2470,7 @@ void MPC::CalculateVelocitySetpoint(float dt)
 //	SendVehicleGlobalVelocitySetpointMsg(); TODO
 }
 
-void MPC::CalculateThrustSetpoint(float dt) // UPDATE
+void MPC::CalculateThrustSetpoint(float dt) // UPDATED
 {
 	/* Reset integrals if needed. */
 	if (VehicleControlModeMsg.ControlClimbRateEnabled)
