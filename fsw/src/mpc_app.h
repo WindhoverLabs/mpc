@@ -66,11 +66,11 @@ extern "C" {
  ** Local Defines
  *************************************************************************/
 enum manual_stick_input {
-	brake,
-	direction_change,
-	acceleration,
-	deceleration,
-	none
+	brake = 0,
+	direction_change = 1,
+	acceleration = 2,
+	deceleration = 3,
+	none = 4
 };
 
 
