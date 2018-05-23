@@ -324,9 +324,10 @@ void MPC::InitData()
 	// NEW
 
 	RefAltIsGlobal = false;
-//	_user_intention_xy;
-//	_user_intention_z;
+	_user_intention_xy = none;
+	_user_intention_z = none;
 	_stick_input_xy_prev.Zero();
+	_vel_max_xy = 0.0f;
 	_vel_max_xy = 0.0f;
 	_acceleration_state_dependent_xy = 0.0f;
 	_acceleration_state_dependent_z = 0.0f;
@@ -334,9 +335,9 @@ void MPC::InitData()
 	_manual_jerk_limit_z = 0.0f;
 	_z_derivative = 0.0f;
 	//_manual_direction_change_hysteresis(false);
-	//_filter_manual_pitch(0.0f);
-	//_filter_manual_roll(0.0f);
+	_triplet_lat_lon_finite = false;
 	PreviousPositionSetpoint.Zero();
+	_man_yaw_offset = 0.0f;
 
 	UpdateParamsFromTable();
 }
@@ -436,7 +437,6 @@ int32 MPC::RcvSchPipeMsg(int32 iBlocking)
 
             case PX4_CONTROL_STATE_MID:
                 memcpy(&ControlStateMsg, MsgPtr, sizeof(ControlStateMsg));
-                ProcessControlStateMsg();
                 break;
 
             case PX4_MANUAL_CONTROL_SETPOINT_MID:
@@ -732,99 +732,54 @@ void MPC::AppMain()
     CFE_ES_ExitApp(uiRunStatus);
 }
 
-
-void MPC::ProcessControlStateMsg(void)
-{
-	math::Quaternion q_att(
-			ControlStateMsg.Q[0],
-			ControlStateMsg.Q[1],
-			ControlStateMsg.Q[2],
-			ControlStateMsg.Q[3]);
-
-	Rotation = q_att.RotationMatrix();
-	math::Vector3F euler_angles;
-
-	euler_angles = Rotation.ToEuler();
-
-	Yaw = euler_angles[2];
-
-	if(VehicleControlModeMsg.ControlManualEnabled)
-	{
-		if (HeadingResetCounter != ControlStateMsg.QuatResetCounter)
-		{
-			HeadingResetCounter = ControlStateMsg.QuatResetCounter;
-			math::Quaternion delta_q(ControlStateMsg.DeltaQReset[0],
-					ControlStateMsg.DeltaQReset[1],
-					ControlStateMsg.DeltaQReset[2],
-					ControlStateMsg.DeltaQReset[3]);
-
-			// we only extract the heading change from the delta quaternion
-			math::Vector3F delta_euler = delta_q.ToEuler();
-			VehicleAttitudeSetpointMsg.YawBody += delta_euler[2];
-		}
-	}
-}
-
-
-
-void MPC::ProcessVehicleLocalPositionMsg(void)
+void MPC::ProcessVehicleLocalPositionMsg(void)// Updated
 {
 	/* Check if a reset event has happened if the vehicle is in manual mode
 	 * we will shift the setpoints of the states which were reset. In auto
 	 * mode we do not shift the setpoints since we want the vehicle to track
 	 * the original state.
 	 */
+	// TODO: PE doesn't increment the reset counters. This may be dead code.
 	if (VehicleControlModeMsg.ControlManualEnabled)
 	{
 		if (Z_ResetCounter != VehicleLocalPositionMsg.Z_ResetCounter)
 		{
-			PositionSetpoint[2] = PositionSetpoint[2] + VehicleLocalPositionMsg.Delta_Z;
+			PositionSetpoint[2] = VehicleLocalPositionMsg.Z;
 		}
 
 		if (XY_ResetCounter != VehicleLocalPositionMsg.XY_ResetCounter)
 		{
-			PositionSetpoint[0] = PositionSetpoint[0] + VehicleLocalPositionMsg.Delta_XY[0];
-			PositionSetpoint[1] = PositionSetpoint[1] + VehicleLocalPositionMsg.Delta_XY[1];
-		}
-
-		if (VZ_ResetCounter != VehicleLocalPositionMsg.VZ_ResetCounter)
-		{
-			VelocitySetpoint[2] = VelocitySetpoint[2] + VehicleLocalPositionMsg.Delta_VZ;
-			VelocitySetpointPrevious[2] =  VelocitySetpointPrevious[2] + VehicleLocalPositionMsg.Delta_VZ;
-		}
-
-		if (VXY_ResetCounter != VehicleLocalPositionMsg.VXY_ResetCounter)
-		{
-			VelocitySetpoint[0] = VelocitySetpoint[0] + VehicleLocalPositionMsg.Delta_VXY[0];
-			VelocitySetpoint[1] = VelocitySetpoint[1] + VehicleLocalPositionMsg.Delta_VXY[1];
-			VelocitySetpointPrevious[0] = VelocitySetpointPrevious[0] + VehicleLocalPositionMsg.Delta_VXY[0];
-			VelocitySetpointPrevious[1] = VelocitySetpointPrevious[1] + VehicleLocalPositionMsg.Delta_VXY[1];
+			PositionSetpoint[0] = VehicleLocalPositionMsg.X;
+			PositionSetpoint[1] = VehicleLocalPositionMsg.Y;
 		}
 	}
 
 	/* Update the reset counters in any case. */
 	Z_ResetCounter = VehicleLocalPositionMsg.Z_ResetCounter;
 	XY_ResetCounter = VehicleLocalPositionMsg.XY_ResetCounter;
-	VZ_ResetCounter = VehicleLocalPositionMsg.VZ_ResetCounter;
-	VXY_ResetCounter = VehicleLocalPositionMsg.VXY_ResetCounter;
 }
 
 
 
-void MPC::ProcessPositionSetpointTripletMsg(void)
+void MPC::ProcessPositionSetpointTripletMsg(void)// Updated
 {
-	/* Set current position setpoint invalid if none of them (lat, lon and
-	 * alt) is finite. */
-	if (!isfinite(PositionSetpointTripletMsg.Current.Lat) &&
-	    !isfinite(PositionSetpointTripletMsg.Current.Lon) &&
-	    !isfinite(PositionSetpointTripletMsg.Current.Alt))
+	/* Set current position setpoint invalid if alt is infinite. */
+	if (!isfinite(PositionSetpointTripletMsg.Current.Alt))
 	{
 		PositionSetpointTripletMsg.Current.Valid = false;
+	}
+
+	/* To be a valid previous triplet, lat/lon/alt has to be finite */
+	if (!isfinite(PositionSetpointTripletMsg.Previous.Lat) &&
+	    !isfinite(PositionSetpointTripletMsg.Previous.Lon) &&
+	    !isfinite(PositionSetpointTripletMsg.Previous.Alt))
+	{
+		PositionSetpointTripletMsg.Previous.Valid = false;
 	}
 }
 
 
-void MPC::Execute(void)
+void MPC::Execute(void) // Updated
 {
 	static uint64 t_prev = 0;
 
@@ -997,6 +952,11 @@ void MPC::UpdateRef(void) // Updated
 		map_projection_init(&RefPos, VehicleLocalPositionMsg.RefLat, VehicleLocalPositionMsg.RefLon, currentTime);
 		RefAlt = VehicleLocalPositionMsg.RefAlt;
 
+		if(VehicleLocalPositionMsg.Z_Global)
+		{
+			RefAltIsGlobal = true;
+		}
+
 		if (RefTimestamp != 0)
 		{
 			/* Reproject position setpoint to new reference this effectively
@@ -1080,8 +1040,6 @@ void MPC::UpdateVelocityDerivative(float dt) // UPDATED
 
 void MPC::DoControl(float dt) // Updated
 {
-	//VelocityFF.Zero();
-
 	/* By default, run position/altitude controller. the control_* functions
 	 * can disable this and run velocity controllers directly in this cycle */
 	RunPosControl = true;
@@ -1098,7 +1056,7 @@ void MPC::DoControl(float dt) // Updated
 		 * until triplets have been updated. */
 		PositionSetpointTripletMsg.Current.Valid = false;
 		PositionSetpointTripletMsg.Previous.Valid = false;
-		CurrentPositionSetpoint.Zero();
+		CurrentPositionSetpoint = math::Vector3F(NAN, NAN, NAN);
 
 		HoldOffboardXY = false;
 		HoldOffboardZ = false;
@@ -1268,9 +1226,6 @@ void MPC::GenerateAttitudeSetpoint(float dt) // UPDATED
 
 void MPC::ControlManual(float dt) //UPDATED
 {
-	/* Velocity setpoint commanded by user stick input. */
-	math::Vector3F man_vel_sp(0.0f, 0.0f, 0.0f);
-
 	/* Entering manual control from non-manual control mode, reset alt/pos setpoints */
 	if(ModeAuto == true)
 	{
@@ -1288,6 +1243,9 @@ void MPC::ControlManual(float dt) //UPDATED
 	 * Map from stick input to velocity setpoint.
 	 */
 
+	/* Velocity setpoint commanded by user stick input. */
+	math::Vector3F man_vel_sp(0.0f, 0.0f, 0.0f);
+
 	if(VehicleControlModeMsg.ControlAltitudeEnabled)
 	{
 		/* Set vertical velocity setpoint with throttle stick, remapping of
@@ -1302,9 +1260,6 @@ void MPC::ControlManual(float dt) //UPDATED
 
 	if (VehicleControlModeMsg.ControlPositionEnabled)
 	{
-		float man_vel_hor_length;
-		math::Vector2F man_vel_hor;
-
 		/* Set horizontal velocity setpoint with roll/pitch stick */
 		man_vel_sp[0] = math::expof_deadzone(
 				ManualControlSetpointMsg.X,
@@ -1313,20 +1268,10 @@ void MPC::ControlManual(float dt) //UPDATED
 				ManualControlSetpointMsg.Y,
 				ConfigTblPtr->XY_MAN_EXPO, ConfigTblPtr->HOLD_DZ);
 
-		//const float man_vel_hor_length = ((math::Vector2F)man_vel_sp.Slice<2, 1>(0, 0)).Length(); TODO slice?
+		const float man_vel_hor_length = math::Vector2F(man_vel_sp[0], man_vel_sp[1]).Length();
 
 		/* saturate such that magnitude is never larger than 1 */
-//		if (man_vel_hor_length > 1.0f) {
-//			manVelocitySetpoint[0] /= man_vel_hor_length;
-//			manVelocitySetpoint[1] /= man_vel_hor_length;
-//		}
-
-		/* Get the magnitude of the horizontal component. */
-		man_vel_hor_length = man_vel_hor.Length();
-
-		/* Saturate such that magnitude is never larger than 1 */
-		if (man_vel_hor_length > 1.0f)
-		{
+		if (man_vel_hor_length > 1.0f) {
 			man_vel_sp[0] /= man_vel_hor_length;
 			man_vel_sp[1] /= man_vel_hor_length;
 		}
@@ -1384,7 +1329,7 @@ void MPC::ControlManual(float dt) //UPDATED
 			float delta_t = fabsf(Velocity[2] / max_acc_z);
 
 			/* Set desired position setpoint assuming max acceleraiton. */
-			PositionSetpoint[2] = PositionSetpoint[2] + Velocity[2] * delta_t + 0.5f * max_acc_z * delta_t * delta_t;
+			PositionSetpoint[2] = Position[2] + Velocity[2] * delta_t + 0.5f * max_acc_z * delta_t * delta_t;
 
 			AltitudeHoldEngaged = true;
 		}
@@ -1444,30 +1389,7 @@ void MPC::ControlManual(float dt) //UPDATED
 		VelocitySetpoint[1] = man_vel_sp[1];
 	}
 
-	// check if needed
-//	if (VehicleLandDetectedMsg.Landed)
-//	{
-//		/* Don't run controller when landed */
-//		ResetPositionSetpoint = true;
-//		ResetAltitudeSetpoint = true;
-//		ModeAuto = false;
-//		ResetIntZ = true;
-//		ResetIntXY = true;
-//
-//		RSetpoint.Identity();
-//
-//		VehicleAttitudeSetpointMsg.RollBody = 0.0f;
-//		VehicleAttitudeSetpointMsg.PitchBody = 0.0f;
-//		VehicleAttitudeSetpointMsg.YawBody = Yaw;
-//		VehicleAttitudeSetpointMsg.Thrust = 0.0f;
-//
-//		VehicleAttitudeSetpointMsg.Timestamp = PX4LIB_GetPX4TimeUs();
-//
-//	}
-//	else
-//	{
-		ControlPosition(dt);
-//	}
+	ControlPosition(dt);
 }
 
 
@@ -1490,8 +1412,6 @@ void MPC::ControlNonManual(float dt) // UPDATED
 		/* AUTO */
 		ControlAuto(dt);
 	}
-
-	//VehicleAttitudeSetpointMsg.DisableMcYawControl = false; check if needed
 
 	/* Guard against any bad velocity values. */
 	bool velocity_valid = isfinite(PositionSetpointTripletMsg.Current.VX) &&
@@ -1829,8 +1749,8 @@ void MPC::ControlAuto(float dt) // DONE
 
 		/* sanity check */
 		if (isfinite(CurrentPositionSetpoint[0]) &&
-				isfinite(CurrentPositionSetpoint[1]) &&
-				isfinite(CurrentPositionSetpoint[2]))
+			isfinite(CurrentPositionSetpoint[1]) &&
+			isfinite(CurrentPositionSetpoint[2]))
 		{
 			current_setpoint_valid = true;
 		}
@@ -1862,8 +1782,8 @@ void MPC::ControlAuto(float dt) // DONE
 		prev_sp[2] = -(PositionSetpointTripletMsg.Previous.Alt - RefAlt);
 
 		if (isfinite(prev_sp[0]) &&
-				isfinite(prev_sp[1]) &&
-				isfinite(prev_sp[2]))
+			isfinite(prev_sp[1]) &&
+			isfinite(prev_sp[2]))
 		{
 			PreviousPositionSetpoint = prev_sp;
 			previous_setpoint_valid = true;
@@ -2546,11 +2466,7 @@ void MPC::CalculateThrustSetpoint(float dt) // UPDATED
 		/* Convert back to local frame (NED) */
 		thrust_sp = Rotation * thrust_sp_body;
 
-		/* Set velocity setpoint to zero and reset position. */
-		VelocitySetpoint[0] = 0.0f;
-		VelocitySetpoint[1] = 0.0f;
-		PositionSetpoint[0] = Position[0];
-		PositionSetpoint[1] = Position[1];
+		//TODO or thrust_sp.Zero();
 	}
 
 	if (!VehicleControlModeMsg.ControlClimbRateEnabled && !VehicleControlModeMsg.ControlAccelerationEnabled)
@@ -2804,7 +2720,7 @@ void MPC::CalculateThrustSetpoint(float dt) // UPDATED
 
 
 
-float MPC::GetCruisingSpeedXY(void)
+float MPC::GetCruisingSpeedXY(void) // Updated
 {
 	float res;
 
@@ -2812,7 +2728,7 @@ float MPC::GetCruisingSpeedXY(void)
 	 * In missions, the user can choose cruising speed different to default.
 	 */
 	res = ((isfinite(PositionSetpointTripletMsg.Current.CruisingSpeed) &&
-			(PositionSetpointTripletMsg.Current.CruisingSpeed > 0.1f)) ?
+			!(PositionSetpointTripletMsg.Current.CruisingSpeed < 0.0f)) ?
 					PositionSetpointTripletMsg.Current.CruisingSpeed : ConfigTblPtr->XY_CRUISE);
 
 	return res;
@@ -2823,10 +2739,10 @@ float MPC::GetCruisingSpeedXY(void)
 bool MPC::CrossSphereLine(const math::Vector3F &sphere_c, const float sphere_r,
 		const math::Vector3F &line_a, const math::Vector3F &line_b, math::Vector3F &res) // UPDATED
 {
-	bool result;
+	bool result = false;
 	math::Vector3F d;
-	float cd_len;
-	float dx_len;
+	float cd_len = 0.0f;
+	float dx_len = 0.0f;
 
 	/* Project center of sphere on line normalized AB. */
 	math::Vector3F ab_norm = line_b - line_a;
@@ -2948,56 +2864,6 @@ void MPC::LimitAltitude(void)
 	return;
 }
 
-
-
-void MPC::SlowLandGradualVelocityLimit(void)
-{
-	/*
-	 * Make sure downward velocity (positive Z) is limited close to ground.
-	 * for now we use the home altitude and assume that we want to land on a similar absolute altitude.
-	 */
-	float altitude_above_home = -Position[2] + HomePositionMsg.Z;
-	float vel_limit = ConfigTblPtr->Z_VEL_MAX_DN;
-
-	if (altitude_above_home < ConfigTblPtr->LAND_ALT2)
-	{
-		vel_limit = ConfigTblPtr->LAND_SPEED;
-	}
-	else if(altitude_above_home < ConfigTblPtr->LAND_ALT1)
-	{
-		/* Linear function between the two altitudes. */
-		float a = (ConfigTblPtr->Z_VEL_MAX_DN - ConfigTblPtr->LAND_SPEED) / (ConfigTblPtr->LAND_ALT1 - ConfigTblPtr->LAND_ALT2);
-		float b = ConfigTblPtr->LAND_SPEED - a * ConfigTblPtr->LAND_ALT2;
-		vel_limit =  a * altitude_above_home + b;
-	}
-
-	VelocitySetpoint[2] = math::min(VelocitySetpoint[2], vel_limit);
-}
-
-
-
-void MPC::LimitVelXYGradually(void)
-{
-	/*
-	 * The max velocity is defined by the linear line
-	 * with x= (curr_sp - pos) and y = VelocitySetpoint with min limit of 0.01
-	 */
-	math::Vector3F dist = CurrentPositionSetpoint - Position;
-	float slope = (GetCruisingSpeedXY() - 0.01f)  / ConfigTblPtr->TARGET_THRE;
-	float vel_limit =  slope * sqrtf(dist[0] * dist[0] + dist[1] * dist[1]) + 0.01f;
-	float vel_mag_xy = sqrtf(VelocitySetpoint[0] * VelocitySetpoint[0] + VelocitySetpoint[1] * VelocitySetpoint[1]);
-
-	if (vel_mag_xy <= vel_limit)
-	{
-		return;
-	}
-
-	VelocitySetpoint[0] = VelocitySetpoint[0] / vel_mag_xy * vel_limit;
-	VelocitySetpoint[1] = VelocitySetpoint[1] / vel_mag_xy * vel_limit;
-}
-
-
-
 void MPC::ApplyVelocitySetpointSlewRate(float dt) // UPDATED
 {
 	math::Vector2F vel_sp_xy(VelocitySetpoint[0], VelocitySetpoint[1]);
@@ -3030,7 +2896,7 @@ void MPC::ApplyVelocitySetpointSlewRate(float dt) // UPDATED
 
 
 
-bool MPC::InAutoTakeoff(void)
+bool MPC::InAutoTakeoff(void) // Updated
 {
 	bool res = false;
 
@@ -3052,7 +2918,7 @@ bool MPC::InAutoTakeoff(void)
 	return res;
 }
 
-float MPC::GetVelClose(const math::Vector2F &unit_prev_to_current, const math::Vector2F &unit_current_to_next)
+float MPC::GetVelClose(const math::Vector2F &unit_prev_to_current, const math::Vector2F &unit_current_to_next) // Updated
 {
 	/* minimum cruise speed when passing waypoint */
 	float min_cruise_speed = 1.0f;
@@ -3108,9 +2974,9 @@ float MPC::GetVelClose(const math::Vector2F &unit_prev_to_current, const math::V
 		float slope = -(GetCruisingSpeedXY() - min_cruise_speed) / 2.0f;
 		vel_close = slope * angle + GetCruisingSpeedXY();
 
-	} else
+	}
+	else
 	{
-
 		/* velocity close to target adjusted to angle
 		 * vel_close = a *b ^x + c; where at angle = 0 -> vel_close = vel_cruise; angle = 1 -> vel_close = middle_cruise_speed (this means that at 90degrees
 		 * the velocity at target is middle_cruise_speed);
@@ -3128,7 +2994,7 @@ float MPC::GetVelClose(const math::Vector2F &unit_prev_to_current, const math::V
 	return math::constrain(vel_close, min_cruise_speed, GetCruisingSpeedXY());
 }
 
-void MPC::SetManualAccelerationZ(float &max_acceleration, const float stick_z, const float dt)
+void MPC::SetManualAccelerationZ(float &max_acceleration, const float stick_z, const float dt) // Updated
 {
 	/* in manual altitude control apply acceleration limit based on stick input
 	 * we consider two states
@@ -3147,7 +3013,7 @@ void MPC::SetManualAccelerationZ(float &max_acceleration, const float stick_z, c
 	}
 
 	/* get max and min acceleration where min acceleration is just 1/5 of max acceleration */
-	max_acceleration = (stick_z <= 0.0f) ? ConfigTblPtr->ACC_DOWN_MAX : ConfigTblPtr->ACC_DOWN_MAX;
+	max_acceleration = (stick_z <= 0.0f) ? ConfigTblPtr->ACC_UP_MAX : ConfigTblPtr->ACC_DOWN_MAX;
 
 	/*
 	 * update user input
@@ -3186,7 +3052,7 @@ void MPC::SetManualAccelerationZ(float &max_acceleration, const float stick_z, c
 	}
 }
 
-void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt)
+void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt) // Updated
 {
 
 	/*
@@ -3395,7 +3261,7 @@ void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt)
 	}
 }
 
-bool MPC::ManualWantsTakeoff()
+bool MPC::ManualWantsTakeoff() // Updated
 {
 	const bool has_manual_control_present = VehicleControlModeMsg.ControlManualEnabled && ManualControlSetpointMsg.Timestamp > 0;
 

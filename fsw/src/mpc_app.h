@@ -69,7 +69,8 @@ enum manual_stick_input {
 	brake,
 	direction_change,
 	acceleration,
-	deceleration
+	deceleration,
+	none
 };
 
 
