@@ -323,7 +323,7 @@ void MPC::InitData()
 	// NEW
 
 	RefAltIsGlobal = false;
-	_user_intention_xy = none;
+	_user_intention_xy = brake; // NOTE: This needs to be initialized to brake to work.
 	_user_intention_z = none;
 	_stick_input_xy_prev.Zero();
 	_vel_max_xy = 0.0f;
@@ -954,15 +954,15 @@ void MPC::Execute(void) // Updated
 		SendVehicleAttitudeSetpointMsg();
 	}
 
-	OS_printf("Position = [%f, %f, %f]\n", Position[0], Position[1], Position[2]);
-	OS_printf("PositionSetpoint = [%f, %f, %f]\n", PositionSetpoint[0], PositionSetpoint[1], PositionSetpoint[2]);
-	OS_printf("CurrentPositionSetpoint = [%f, %f, %f]\n", CurrentPositionSetpoint[0], CurrentPositionSetpoint[1], CurrentPositionSetpoint[2]);
-	OS_printf("Velocity = [%f, %f, %f]\n", Velocity[0], Velocity[1], Velocity[2]);
-	OS_printf("VelocitySetpoint = [%f, %f, %f]\n", VelocitySetpoint[0], VelocitySetpoint[1], VelocitySetpoint[2]);
-	OS_printf("_acceleration_state_dependent_xy = %f\n", _acceleration_state_dependent_xy);
-	OS_printf("_acceleration_state_dependent_z = %f\n", _acceleration_state_dependent_z);
+//	OS_printf("Position = [%f, %f, %f]\n", Position[0], Position[1], Position[2]);
+//	OS_printf("PositionSetpoint = [%f, %f, %f]\n", PositionSetpoint[0], PositionSetpoint[1], PositionSetpoint[2]);
+//	OS_printf("CurrentPositionSetpoint = [%f, %f, %f]\n", CurrentPositionSetpoint[0], CurrentPositionSetpoint[1], CurrentPositionSetpoint[2]);
+//	OS_printf("Velocity = [%f, %f, %f]\n", Velocity[0], Velocity[1], Velocity[2]);
+//	OS_printf("VelocitySetpoint = [%f, %f, %f]\n", VelocitySetpoint[0], VelocitySetpoint[1], VelocitySetpoint[2]);
+//	OS_printf("_acceleration_state_dependent_xy = %f\n", _acceleration_state_dependent_xy);
+//	OS_printf("_acceleration_state_dependent_z = %f\n", _acceleration_state_dependent_z);
 	OS_printf("_user_intention_xy = %i\n", _user_intention_xy);
-	OS_printf("_user_intention_z = %i\n", _user_intention_z);
+//	OS_printf("_user_intention_z = %i\n", _user_intention_z);
 
 
 }
@@ -3126,15 +3126,6 @@ void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt) // U
 	const bool do_deceleration = (is_aligned && (stick_xy.Length() <= _stick_input_xy_prev.Length()));
 
 	const bool do_direction_change = !is_aligned;
-
-	OS_printf("stick_xy_norm [%f, %f]\n", stick_xy_norm[0], stick_xy_norm[1]);
-	OS_printf("stick_xy_prev_norm [%f, %f]\n", stick_xy_prev_norm[0], stick_xy_prev_norm[1]);
-	OS_printf("is_aligned %i\n", is_aligned);
-	OS_printf("is_prev_zero %i\n", is_prev_zero);
-	OS_printf("is_current_zero %i\n", is_current_zero);
-	OS_printf("do_acceleration %i\n", do_acceleration);
-	OS_printf("do_deceleration %i\n", do_deceleration);
-	OS_printf("do_direction_change %i\n", do_direction_change);
 
 	manual_stick_input intention;
 
