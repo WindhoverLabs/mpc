@@ -206,6 +206,7 @@ public:
 	float _manual_jerk_limit_xy; /**< jerk limit in manual mode dependent on stick input */
 	float _manual_jerk_limit_z; /**< jerk limit in manual mode in z */
 	float _z_derivative; /**< velocity in z that agrees with position rate */
+	static constexpr uint64 DIRECTION_CHANGE_TRIGGER_TIME_US = 100000;
 	systemlib::Hysteresis _manual_direction_change_hysteresis;
 	math::LowPassFilter2p _filter_manual_pitch;
 	math::LowPassFilter2p _filter_manual_roll;

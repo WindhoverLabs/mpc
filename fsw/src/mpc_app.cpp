@@ -315,8 +315,7 @@ void MPC::InitData()
 
 	GearStateInitialized = false;
 
-	/* Let's be safe and have the landing gear down by default. */
-	VehicleAttitudeSetpointMsg.LandingGear = -1.0f;
+	VehicleAttitudeSetpointMsg.Q_D[0] = 1.0f;
 
 	WasArmed = false;
 	WasLanded = true;
@@ -335,6 +334,9 @@ void MPC::InitData()
 	_manual_jerk_limit_z = 0.0f;
 	_z_derivative = 0.0f;
 	//_manual_direction_change_hysteresis(false);
+
+	/* set trigger time for manual direction change detection */
+	_manual_direction_change_hysteresis.set_hysteresis_time_from(false, DIRECTION_CHANGE_TRIGGER_TIME_US);
 	_triplet_lat_lon_finite = false;
 	PreviousPositionSetpoint.Zero();
 	_man_yaw_offset = 0.0f;
@@ -1121,9 +1123,9 @@ void MPC::GenerateAttitudeSetpoint(float dt) // UPDATED
 		/* Do not move yaw while sitting on the ground. */
 
 		/* We want to know the real constraint, and global overrides manual. */
-		const float yaw_rate_max = (ConfigTblPtr->MAN_Y_MAX < ConfigTblPtr->MC_YAWRATE_MAX) ? ConfigTblPtr->MAN_Y_MAX :
-				ConfigTblPtr->MC_YAWRATE_MAX;
-		const float yaw_offset_max = yaw_rate_max / ConfigTblPtr->MC_YAW_P;
+		const float yaw_rate_max = (math::radians(ConfigTblPtr->MAN_Y_MAX) < math::radians(ConfigTblPtr->MC_YAWRATE_MAX)) ? math::radians(ConfigTblPtr->MAN_Y_MAX) :
+				math::radians(ConfigTblPtr->MC_YAWRATE_MAX);
+		const float yaw_offset_max = yaw_rate_max / math::radians(ConfigTblPtr->MC_YAW_P);
 
 		VehicleAttitudeSetpointMsg.YawSpMoveRate = ManualControlSetpointMsg.R * yaw_rate_max;
 
@@ -1179,15 +1181,15 @@ void MPC::GenerateAttitudeSetpoint(float dt) // UPDATED
 		 * This allows a simple limitation of the tilt angle, the vehicle flies towards the direction that the stick
 		 * points to, and changes of the stick input are linear.
 		 */
-		const float x = ManualControlSetpointMsg.X * ConfigTblPtr->MAN_TILT_MAX;
-		const float y = ManualControlSetpointMsg.Y * ConfigTblPtr->MAN_TILT_MAX;
+		const float x = ManualControlSetpointMsg.X * math::radians(ConfigTblPtr->MAN_TILT_MAX);
+		const float y = ManualControlSetpointMsg.Y * math::radians(ConfigTblPtr->MAN_TILT_MAX);
 
 		// we want to fly towards the direction of (x, y), so we use a perpendicular axis angle vector in the XY-plane
 		math::Vector2F v = math::Vector2F(y, -x);
 		float v_norm = v.Length();// the norm of v defines the tilt angle. Same as length()
 
-		if (v_norm > ConfigTblPtr->MAN_TILT_MAX) { // limit to the configured maximum tilt angle
-			v = v * ConfigTblPtr->MAN_TILT_MAX / v_norm;
+		if (v_norm > math::radians(ConfigTblPtr->MAN_TILT_MAX)) { // limit to the configured maximum tilt angle
+			v = v * math::radians(ConfigTblPtr->MAN_TILT_MAX) / v_norm;
 		}
 
 		math::Quaternion q_sp_rpy = math::Vector3F(v[0], v[1], 0.0f);// = AxisAngle(v[0], v[1], 0.0f);
@@ -1692,9 +1694,9 @@ void MPC::ControlOffboard(float dt) // UPDATED
 		{
 			float yaw_target = _wrap_pi(VehicleAttitudeSetpointMsg.YawBody + PositionSetpointTripletMsg.Current.Yawspeed * dt);
 						float yaw_offs = _wrap_pi(yaw_target - Yaw);
-						const float yaw_rate_max = (ConfigTblPtr->MAN_Y_MAX < ConfigTblPtr->MC_YAWRATE_MAX) ? ConfigTblPtr->MAN_Y_MAX :
-								ConfigTblPtr->MC_YAWRATE_MAX;
-						const float yaw_offset_max = yaw_rate_max / ConfigTblPtr->MC_YAW_P;
+						const float yaw_rate_max = (math::radians(ConfigTblPtr->MAN_Y_MAX) < math::radians(ConfigTblPtr->MC_YAWRATE_MAX)) ? math::radians(ConfigTblPtr->MAN_Y_MAX) :
+								math::radians(ConfigTblPtr->MC_YAWRATE_MAX);
+						const float yaw_offset_max = yaw_rate_max / math::radians(ConfigTblPtr->MC_YAW_P);
 
 						// If the yaw offset became too big for the system to track stop
 						// shifting it, only allow if it would make the offset smaller again.
@@ -2518,7 +2520,7 @@ void MPC::CalculateThrustSetpoint(float dt) // UPDATED
 		thr_min = 0.0f;
 	}
 
-	float tilt_max = ConfigTblPtr->TILTMAX_AIR;
+	float tilt_max = math::radians(ConfigTblPtr->TILTMAX_AIR);
 	float thr_max = ConfigTblPtr->THR_MAX;
 
 	/* We can only run the control if we're already in-air, have a takeoff setpoint,
@@ -2532,7 +2534,7 @@ void MPC::CalculateThrustSetpoint(float dt) // UPDATED
 			PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_LAND)
 	{
 		/* Adjust limits for landing mode.  Limit max tilt and min lift when landing. */
-		tilt_max = ConfigTblPtr->TILTMAX_LND;
+		tilt_max = math::radians(ConfigTblPtr->TILTMAX_LND);
 	}
 
 	/* Limit min lift */
