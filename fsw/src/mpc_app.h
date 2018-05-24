@@ -509,6 +509,10 @@ public:
 	void SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt);
 	bool ManualWantsTakeoff(void);
 
+
+	void UpdateXyPids(MPC_SetPidCmd_t* PidMsg);
+	void UpdateZPids(MPC_SetPidCmd_t* PidMsg);
+
 public:
     /************************************************************************/
     /** \brief Validate MPC configuration table

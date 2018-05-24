@@ -121,6 +121,9 @@ extern "C" {
 */
 #define MPC_RESET_CC                (1)
 
+#define MPC_SET_XY_PID_CC           (2)
+#define MPC_SET_Z_PID_CC            (3)
+
 /************************************************************************
 ** Local Structure Declarations
 *************************************************************************/
@@ -153,6 +156,17 @@ typedef struct
 
 } MPC_HkTlm_t;
 
+/**
+**  \brief MPC pid data
+*/
+typedef struct
+{
+	uint8  ucCmdHeader[CFE_SB_CMD_HDR_SIZE];
+	float              PidGain;
+	float              PidVelP;
+	float              PidVelI;
+	float              PidVelD;
+} MPC_SetPidCmd_t;
 
 #ifdef __cplusplus
 }

@@ -264,6 +264,17 @@ typedef enum {
 	*/
 	MPC_UNK_VEL_FRM_ERR_EID,
 
+/** \brief <tt> '' </tt>
+**  \event <tt> '' </tt>
+**
+**  \par Type: TODO
+**
+**  \par Cause:
+**
+**  This event message is issued when
+*/
+	MPC_PID_UPDATE_EID,
+
 /** \brief <tt> This is a count of all the app events and should not be used. </tt> */
 	MPC_EVT_CNT
 } MPC_EventIds_t;

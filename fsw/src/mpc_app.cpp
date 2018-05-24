@@ -581,6 +581,28 @@ void MPC::ProcessAppCmds(CFE_SB_Msg_t* MsgPtr)
                 HkTlm.usCmdErrCnt = 0;
                 break;
 
+            case MPC_SET_XY_PID_CC:
+            	UpdateXyPids((MPC_SetPidCmd_t *) MsgPtr);
+				HkTlm.usCmdCnt++;
+				(void) CFE_EVS_SendEvent(MPC_PID_UPDATE_EID, CFE_EVS_INFORMATION,
+						"Updating XY PID values. Gain: %f, P: %f, I: %f, D: %f",
+						PosP[0],
+						VelP[0],
+						VelI[0],
+						VelD[0]);
+				break;
+
+            case MPC_SET_Z_PID_CC:
+            	UpdateZPids((MPC_SetPidCmd_t *) MsgPtr);
+				HkTlm.usCmdCnt++;
+				(void) CFE_EVS_SendEvent(MPC_PID_UPDATE_EID, CFE_EVS_INFORMATION,
+						"Updating Z PID values. Gain: %f, P: %f, I: %f, D: %f",
+						PosP[2],
+						VelP[2],
+						VelI[2],
+						VelD[2]);
+				break;
+
             default:
                 HkTlm.usCmdErrCnt++;
                 (void) CFE_EVS_SendEvent(MPC_CC_ERR_EID, CFE_EVS_ERROR,
@@ -2843,7 +2865,28 @@ MPC_CrossSphereLine_Exit_Tag:
 	return result;
 }
 
+void MPC::UpdateXyPids(MPC_SetPidCmd_t* PidMsg)
+{
+	PosP[0] = PidMsg->PidGain;
+	PosP[1] = PidMsg->PidGain;
 
+	VelP[0] = PidMsg->PidVelP;
+	VelP[1] = PidMsg->PidVelP;
+
+	VelI[0] = PidMsg->PidVelI;
+	VelI[1] = PidMsg->PidVelI;
+
+	VelD[0] = PidMsg->PidVelD;
+	VelD[1] = PidMsg->PidVelD;;
+}
+
+void MPC::UpdateZPids(MPC_SetPidCmd_t* PidMsg)
+{
+	PosP[2] = PidMsg->PidGain;
+	VelP[2] = PidMsg->PidVelP;
+	VelI[2] = PidMsg->PidVelI;
+	VelD[2] = PidMsg->PidVelD;
+}
 
 void MPC::UpdateParamsFromTable(void)
 {
@@ -2866,8 +2909,6 @@ void MPC::UpdateParamsFromTable(void)
 		VelD[2] = ConfigTblPtr->Z_VEL_D;
 	}
 }
-
-
 
 /**
  * Limit altitude based on several conditions
