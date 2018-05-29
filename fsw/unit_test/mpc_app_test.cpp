@@ -679,6 +679,7 @@ void Test_MPC_AppMain_Nominal_UpdateVelocityDerivative(void)
 {
     MPC oMPC;
 
+    oMPC.InitApp();
     /* Run 2 passes so we can verify the Velocity Error Derivative
      * calculation.
      *
