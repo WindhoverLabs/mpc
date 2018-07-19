@@ -829,7 +829,7 @@ MulticopterPositionControl::poll_subscriptions()
 }
 
 float
-MulticopterPositionControl::throttle_curve(float ctl, float ctr) // DONE
+MulticopterPositionControl::throttle_curve(float ctl, float ctr) // NEW DONE
 {
 	/* piecewise linear mapping: 0:ctr -> 0:0.5
 	 * and ctr:1 -> 0.5:1 */
@@ -848,7 +848,7 @@ MulticopterPositionControl::task_main_trampoline(int argc, char *argv[])
 }
 
 void
-MulticopterPositionControl::update_ref() // DONE
+MulticopterPositionControl::update_ref() // NEW DONE
 {
 	// The reference point is only allowed to change when the vehicle is in standby state which is the
 	// normal state when the estimator origin is set. Changing reference point in flight causes large controller
@@ -891,7 +891,7 @@ MulticopterPositionControl::update_ref() // DONE
 }
 
 void
-MulticopterPositionControl::reset_pos_sp() // DONE
+MulticopterPositionControl::reset_pos_sp() // NEW DONE
 {
 	if (_reset_pos_sp) {
 		_reset_pos_sp = false;
@@ -905,7 +905,7 @@ MulticopterPositionControl::reset_pos_sp() // DONE
 }
 
 void
-MulticopterPositionControl::reset_alt_sp() // DONE
+MulticopterPositionControl::reset_alt_sp() // NEW DONE
 {
 	if (_reset_alt_sp) {
 		_reset_alt_sp = false;
@@ -918,7 +918,7 @@ MulticopterPositionControl::reset_alt_sp() // DONE
 }
 
 void
-MulticopterPositionControl::limit_altitude() //DONE
+MulticopterPositionControl::limit_altitude() // NEW DONE
 {
 	if (_vehicle_land_detected.alt_max < 0.0f) {
 		// there is no altitude limitation present
@@ -949,7 +949,7 @@ MulticopterPositionControl::limit_altitude() //DONE
 }
 
 bool
-MulticopterPositionControl::in_auto_takeoff() //DONE
+MulticopterPositionControl::in_auto_takeoff() // NEW DONE
 {
 	/*
 	 * in auto mode, check if we do a takeoff
@@ -961,7 +961,7 @@ MulticopterPositionControl::in_auto_takeoff() //DONE
 
 float
 MulticopterPositionControl::get_vel_close(const matrix::Vector2f &unit_prev_to_current,
-		const matrix::Vector2f &unit_current_to_next) //DONE
+		const matrix::Vector2f &unit_current_to_next) // NEW DONE
 {
 
 	/* minimum cruise speed when passing waypoint */
@@ -1033,7 +1033,7 @@ MulticopterPositionControl::get_vel_close(const matrix::Vector2f &unit_prev_to_c
 }
 
 float
-MulticopterPositionControl::get_cruising_speed_xy() //DONE
+MulticopterPositionControl::get_cruising_speed_xy() // NEW DONE
 {
 	/*
 	 * in mission the user can choose cruising speed different to default
@@ -1043,7 +1043,7 @@ MulticopterPositionControl::get_cruising_speed_xy() //DONE
 }
 
 void
-MulticopterPositionControl::set_manual_acceleration_z(float &max_acceleration, const float stick_z, const float dt) //DONE
+MulticopterPositionControl::set_manual_acceleration_z(float &max_acceleration, const float stick_z, const float dt) // NEW DONE
 {
 
 
@@ -1104,7 +1104,7 @@ MulticopterPositionControl::set_manual_acceleration_z(float &max_acceleration, c
 }
 
 void
-MulticopterPositionControl::set_manual_acceleration_xy(matrix::Vector2f &stick_xy, const float dt) // DONE
+MulticopterPositionControl::set_manual_acceleration_xy(matrix::Vector2f &stick_xy, const float dt) // NEW DONE
 {
 
 	/*
@@ -1314,7 +1314,7 @@ MulticopterPositionControl::set_manual_acceleration_xy(matrix::Vector2f &stick_x
 }
 
 void
-MulticopterPositionControl::control_manual(float dt) //DONE
+MulticopterPositionControl::control_manual(float dt) // NEW DONE
 {
 	/* Entering manual control from non-manual control mode, reset alt/pos setpoints */
 	if (_mode_auto) {
@@ -1467,7 +1467,7 @@ MulticopterPositionControl::control_manual(float dt) //DONE
 }
 
 void
-MulticopterPositionControl::control_non_manual(float dt) // DONE
+MulticopterPositionControl::control_non_manual(float dt) // NEW DONE
 {
 	/* select control source */
 	if (_control_mode.flag_control_offboard_enabled) {
@@ -1550,7 +1550,7 @@ MulticopterPositionControl::control_non_manual(float dt) // DONE
 }
 
 void
-MulticopterPositionControl::control_offboard(float dt) // DONE
+MulticopterPositionControl::control_offboard(float dt) // NEW DONE
 {
 	if (_pos_sp_triplet.current.valid) {
 
@@ -1661,7 +1661,7 @@ MulticopterPositionControl::control_offboard(float dt) // DONE
 }
 
 void
-MulticopterPositionControl::vel_sp_slewrate(float dt) // DONE
+MulticopterPositionControl::vel_sp_slewrate(float dt) // NEW DONE
 {
 	matrix::Vector2f vel_sp_xy(_vel_sp(0), _vel_sp(1));
 	matrix::Vector2f vel_sp_prev_xy(_vel_sp_prev(0), _vel_sp_prev(1));

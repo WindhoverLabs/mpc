@@ -46,7 +46,7 @@ MPC oMPC;
 MPC::MPC() :
 		_filter_manual_pitch(50.0f, 10.0f),
 		_filter_manual_roll(50.0f, 10.0f),
-		_manual_direction_change_hysteresis(false)
+		ManualDirectionChangeHysteresis(false)
 {
 
 }
@@ -323,19 +323,19 @@ void MPC::InitData()
 	// NEW
 
 	RefAltIsGlobal = false;
-	_user_intention_xy = brake; // NOTE: This needs to be initialized to brake to work.
-	_user_intention_z = none;
-	_stick_input_xy_prev.Zero();
+	UserIntentionXY = BRAKE; // NOTE: This needs to be initialized to brake to work.
+	UserIntentionZ = NONE;
+	StickInputXyPrev.Zero();
 	_vel_max_xy = 0.0f;
-	_acceleration_state_dependent_xy = 0.0f;
-	_acceleration_state_dependent_z = 0.0f;
-	_manual_jerk_limit_xy = 0.0f;
-	_manual_jerk_limit_z = 0.0f;
+	AccelerationStateDependentXY = 0.0f;
+	AccelerationStateDependentZ = 0.0f;
+	ManualJerkLimitXY = ConfigTblPtr->MPC_JERK_MAX;
+	ManualJerkLimitZ = (ConfigTblPtr->MPC_JERK_MAX > ConfigTblPtr->MPC_JERK_MIN) ? ConfigTblPtr->MPC_JERK_MAX: 1000000.0f;
 	_z_derivative = 0.0f;
-	//_manual_direction_change_hysteresis(false);
+	//ManualDirectionChangeHysteresis(false);
 
 	/* set trigger time for manual direction change detection */
-	_manual_direction_change_hysteresis.set_hysteresis_time_from(false, DIRECTION_CHANGE_TRIGGER_TIME_US);
+	ManualDirectionChangeHysteresis.set_hysteresis_time_from(false, DIRECTION_CHANGE_TRIGGER_TIME_US);
 	_triplet_lat_lon_finite = false;
 	PreviousPositionSetpoint.Zero();
 	_man_yaw_offset = 0.0f;
@@ -981,13 +981,13 @@ void MPC::Execute(void) // Updated
 //	OS_printf("CurrentPositionSetpoint = [%f, %f, %f]\n", CurrentPositionSetpoint[0], CurrentPositionSetpoint[1], CurrentPositionSetpoint[2]);
 //	OS_printf("Velocity = [%f, %f, %f]\n", Velocity[0], Velocity[1], Velocity[2]);
 //	OS_printf("VelocitySetpoint = [%f, %f, %f]\n", VelocitySetpoint[0], VelocitySetpoint[1], VelocitySetpoint[2]);
-//	OS_printf("_acceleration_state_dependent_xy = %f\n", _acceleration_state_dependent_xy);
-//	OS_printf("_acceleration_state_dependent_z = %f\n", _acceleration_state_dependent_z);
+//	OS_printf("AccelerationStateDependentXY = %f\n", AccelerationStateDependentXY);
+//	OS_printf("AccelerationStateDependentZ = %f\n", AccelerationStateDependentZ);
 
 
 }
 
-void MPC::UpdateRef(void) // Updated
+void MPC::UpdateRef(void) // NEW DONE
 {
 	/* The reference point is only allowed to change when the vehicle is in standby state which is the
 	normal state when the estimator origin is set. Changing reference point in flight causes large controller
@@ -996,10 +996,10 @@ void MPC::UpdateRef(void) // Updated
 	    && ((VehicleStatusMsg.ArmingState == PX4_ARMING_STATE_STANDBY)
 		|| (!RefAltIsGlobal && VehicleLocalPositionMsg.Z_Global)))
 	{
-		double LatitudeSetpoint;
-		double LongitudeSetpoint;
+		double LatitudeSetpoint = 0.0f;
+		double LongitudeSetpoint = 0.0f;
 		float AltitudeSetpoint = 0.0f;
-		uint64 currentTime;
+		uint64 CurrentTime = 0;
 
 		if(RefTimestamp != 0)
 		{
@@ -1012,8 +1012,8 @@ void MPC::UpdateRef(void) // Updated
 		}
 
 		/* Update local projection reference including altitude. */
-		currentTime = PX4LIB_GetPX4TimeUs();
-		map_projection_init(&RefPos, VehicleLocalPositionMsg.RefLat, VehicleLocalPositionMsg.RefLon, currentTime);
+		CurrentTime = PX4LIB_GetPX4TimeUs();
+		map_projection_init(&RefPos, VehicleLocalPositionMsg.RefLat, VehicleLocalPositionMsg.RefLon, CurrentTime);
 		RefAlt = VehicleLocalPositionMsg.RefAlt;
 
 		if(VehicleLocalPositionMsg.Z_Global)
@@ -1128,8 +1128,8 @@ void MPC::DoControl(float dt) // Updated
 	else
 	{
 		/* reset acceleration to default */
-		_acceleration_state_dependent_xy = ConfigTblPtr->ACC_HOR_MAX;
-		_acceleration_state_dependent_z = ConfigTblPtr->ACC_UP_MAX;
+		AccelerationStateDependentXY = ConfigTblPtr->ACC_HOR_MAX;
+		AccelerationStateDependentZ = ConfigTblPtr->ACC_UP_MAX;
 		ControlNonManual(dt);
 	}
 }
@@ -1239,7 +1239,7 @@ void MPC::GenerateAttitudeSetpoint(float dt) // UPDATED
 
 
 
-void MPC::ControlManual(float dt) //UPDATED
+void MPC::ControlManual(float dt) // NEW DONE
 {
 	/* Entering manual control from non-manual control mode, reset alt/pos setpoints */
 	if(ModeAuto == true)
@@ -1259,13 +1259,13 @@ void MPC::ControlManual(float dt) //UPDATED
 	 */
 
 	/* Velocity setpoint commanded by user stick input. */
-	math::Vector3F man_vel_sp(0.0f, 0.0f, 0.0f);
+	math::Vector3F ManVelSp(0.0f, 0.0f, 0.0f);
 
 	if(VehicleControlModeMsg.ControlAltitudeEnabled)
 	{
 		/* Set vertical velocity setpoint with throttle stick, remapping of
 		 * manual.z [0,1] to up and down command [-1,1] */
-		man_vel_sp[2] = -math::expof_deadzone(
+		ManVelSp[2] = -math::expof_deadzone(
 				(ManualControlSetpointMsg.Z - 0.5f) * 2.0f,
 				ConfigTblPtr->Z_MAN_EXPO, ConfigTblPtr->HOLD_DZ);
 
@@ -1276,19 +1276,19 @@ void MPC::ControlManual(float dt) //UPDATED
 	if (VehicleControlModeMsg.ControlPositionEnabled)
 	{
 		/* Set horizontal velocity setpoint with roll/pitch stick */
-		man_vel_sp[0] = math::expof_deadzone(
+		ManVelSp[0] = math::expof_deadzone(
 				ManualControlSetpointMsg.X,
 				ConfigTblPtr->XY_MAN_EXPO, ConfigTblPtr->HOLD_DZ);
-		man_vel_sp[1] = math::expof_deadzone(
+		ManVelSp[1] = math::expof_deadzone(
 				ManualControlSetpointMsg.Y,
 				ConfigTblPtr->XY_MAN_EXPO, ConfigTblPtr->HOLD_DZ);
 
-		const float man_vel_hor_length = math::Vector2F(man_vel_sp[0], man_vel_sp[1]).Length();
+		const float ManVelHorLength = math::Vector2F(ManVelSp[0], ManVelSp[1]).Length();
 
-		/* saturate such that magnitude is never larger than 1 */
-		if (man_vel_hor_length > 1.0f) {
-			man_vel_sp[0] /= man_vel_hor_length;
-			man_vel_sp[1] /= man_vel_hor_length;
+		/* Saturate such that magnitude is never larger than 1 */
+		if (ManVelHorLength > 1.0f) {
+			ManVelSp[0] /= ManVelHorLength;
+			ManVelSp[1] /= ManVelHorLength;
 		}
 
 		/* Reset position setpoint to current position if needed */
@@ -1296,24 +1296,27 @@ void MPC::ControlManual(float dt) //UPDATED
 	}
 	
 	/* Prepare yaw to rotate into NED frame */
-	float yaw_input_frame = VehicleControlModeMsg.ControlFixedHdgEnabled ? YawTakeoff : VehicleAttitudeSetpointMsg.YawBody;
+	float YawInputFrame = VehicleControlModeMsg.ControlFixedHdgEnabled ? YawTakeoff : VehicleAttitudeSetpointMsg.YawBody;
 
 	/* Setpoint in NED frame and scaled to cruise velocity */
-	man_vel_sp = math::Matrix3F3::FromEuler(0.0f, 0.0f, yaw_input_frame) * man_vel_sp;
+	ManVelSp = math::Matrix3F3::FromEuler(0.0f, 0.0f, YawInputFrame) * ManVelSp;
 
-	/* adjust acceleration based on stick input */
-	math::Vector2F stick_xy(man_vel_sp[0], man_vel_sp[1]);
-	SetManualAccelerationXY(stick_xy, dt);
-	float stick_z = man_vel_sp[2];
-	float max_acc_z;
-	SetManualAccelerationZ(max_acc_z, stick_z, dt);
+	/* Adjust acceleration based on stick input */
+	math::Vector2F StickXy(ManVelSp[0], ManVelSp[1]);
+	SetManualAccelerationXY(StickXy, dt);
+	float StickZ = ManVelSp[2];
+	float MaxAccZ = 0.0f;
+	SetManualAccelerationZ(MaxAccZ, StickZ, dt);
+
+	//TODO Remove
+	OS_printf("This shouldn't be zero %f\n",MaxAccZ);
 
 	/* Prepare cruise speed (m/s) vector to scale the velocity setpoint */
-	float vel_mag = (ConfigTblPtr->MPC_VEL_MANUAL < VelMaxXY) ? ConfigTblPtr->MPC_VEL_MANUAL : VelMaxXY;
-	math::Vector3F vel_cruise_scale(vel_mag, vel_mag, (man_vel_sp[2] > 0.0f) ? ConfigTblPtr->Z_VEL_MAX_DN : ConfigTblPtr->Z_VEL_MAX_UP);
+	float VelMag = (ConfigTblPtr->MPC_VEL_MANUAL < VelMaxXY) ? ConfigTblPtr->MPC_VEL_MANUAL : VelMaxXY;
+	math::Vector3F VelCruiseScale(VelMag, VelMag, (ManVelSp[2] > 0.0f) ? ConfigTblPtr->Z_VEL_MAX_DN : ConfigTblPtr->Z_VEL_MAX_UP);
 
 	/* Setpoint scaled to cruise speed */
-	man_vel_sp = man_vel_sp.EMult(vel_cruise_scale);
+	ManVelSp = ManVelSp.EMult(VelCruiseScale);
 
 	/*
 	 * Assisted velocity mode: User controls velocity, but if velocity is small enough, position
@@ -1321,30 +1324,30 @@ void MPC::ControlManual(float dt) //UPDATED
 	 */
 
 	/* Want to get/stay in altitude hold if user has z stick in the middle (accounted for deadzone already) */
-	const bool alt_hold_desired = VehicleControlModeMsg.ControlAltitudeEnabled && (_user_intention_z == brake);
+	const bool AltHoldDesired = VehicleControlModeMsg.ControlAltitudeEnabled && (UserIntentionZ == BRAKE);
 
 	/* Want to get/stay in position hold if user has xy stick in the middle (accounted for deadzone already) */
-	const bool pos_hold_desired = VehicleControlModeMsg.ControlPositionEnabled && (_user_intention_xy ==  brake);
+	const bool PosHoldDesired = VehicleControlModeMsg.ControlPositionEnabled && (UserIntentionXY ==  BRAKE);
 
 	/* Check vertical hold engaged flag. */
 	if (AltitudeHoldEngaged)
 	{
-		AltitudeHoldEngaged = alt_hold_desired;
+		AltitudeHoldEngaged = AltHoldDesired;
 	}
 	else
 	{
 		/* Check if we switch to alt_hold_engaged. */
-		bool smooth_alt_transition = alt_hold_desired && ((max_acc_z - _acceleration_state_dependent_z) < FLT_EPSILON) &&
+		bool SmoothAltTransition = AltHoldDesired && ((MaxAccZ - AccelerationStateDependentZ) < FLT_EPSILON) &&
 							     (ConfigTblPtr->HOLD_MAX_Z < FLT_EPSILON || fabsf(Velocity[2]) < ConfigTblPtr->HOLD_MAX_Z);
 
 		/* During transition predict setpoint forward. */
-		if (smooth_alt_transition)
+		if (SmoothAltTransition)
 		{
 			/* Time to travel from current velocity to zero velocity. */
-			float delta_t = fabsf(Velocity[2] / max_acc_z);
+			float DeltaT = fabsf(Velocity[2] / MaxAccZ);
 
 			/* Set desired position setpoint assuming max acceleraiton. */
-			PositionSetpoint[2] = Position[2] + Velocity[2] * delta_t + 0.5f * max_acc_z * delta_t * delta_t;
+			PositionSetpoint[2] = Position[2] + Velocity[2] * DeltaT + 0.5f * MaxAccZ * DeltaT * DeltaT;
 
 			AltitudeHoldEngaged = true;
 		}
@@ -1353,33 +1356,34 @@ void MPC::ControlManual(float dt) //UPDATED
 	/* Check horizontal hold engaged flag. */
 	if (PositionHoldEngaged)
 	{
-		PositionHoldEngaged = pos_hold_desired;
+		PositionHoldEngaged = PosHoldDesired;
 
-		/* use max acceleration */
-		if (PositionHoldEngaged) {
-			_acceleration_state_dependent_xy = ConfigTblPtr->ACC_HOR_MAX;
+		/* Use max acceleration */
+		if (PositionHoldEngaged)
+		{
+			AccelerationStateDependentXY = ConfigTblPtr->ACC_HOR_MAX;
 		}
 	}
 	else
 	{
 		/* Check if we switch to pos_hold_engaged. */
-		float vel_xy_mag = sqrtf(Velocity[0] * Velocity[0] + Velocity[1] * Velocity[1]);
-		bool smooth_pos_transition = pos_hold_desired
-							     && (fabsf(ConfigTblPtr->ACC_HOR_MAX - _acceleration_state_dependent_xy) < FLT_EPSILON) &&
-							     (ConfigTblPtr->HOLD_MAX_XY < FLT_EPSILON || vel_xy_mag < ConfigTblPtr->HOLD_MAX_XY);
+		float VelXyMag = sqrtf(Velocity[0] * Velocity[0] + Velocity[1] * Velocity[1]);
+		bool SmoothPosTransition = PosHoldDesired
+							     && (fabsf(ConfigTblPtr->ACC_HOR_MAX - AccelerationStateDependentXY) < FLT_EPSILON) &&
+							     (ConfigTblPtr->HOLD_MAX_XY < FLT_EPSILON || VelXyMag < ConfigTblPtr->HOLD_MAX_XY);
 
 		/* During transition predict setpoint forward. */
-		if (smooth_pos_transition)
+		if (SmoothPosTransition)
 		{
 			/* Time to travel from current velocity to zero velocity. */
-			float delta_t = sqrtf(Velocity[0] * Velocity[0] + Velocity[1] * Velocity[1]) / ConfigTblPtr->ACC_HOR_MAX;
+			float DeltaT = sqrtf(Velocity[0] * Velocity[0] + Velocity[1] * Velocity[1]) / ConfigTblPtr->ACC_HOR_MAX;
 
-			/* p pos_sp in xy from max acceleration and current velocity */
-			math::Vector2F pos(Position[0], Position[1]);
-			math::Vector2F vel(Velocity[0], Velocity[1]);
-			math::Vector2F pos_sp = pos + vel * delta_t - vel.Normalized() * 0.5f * ConfigTblPtr->ACC_HOR_MAX * delta_t * delta_t;
-			PositionSetpoint[0] = pos_sp[0];
-			PositionSetpoint[1] = pos_sp[1];
+			/* Position setpoint in xy from max acceleration and current velocity */
+			math::Vector2F Pos(Position[0], Position[1]);
+			math::Vector2F Vel(Velocity[0], Velocity[1]);
+			math::Vector2F PosSp = Pos + Vel * DeltaT - Vel.Normalized() * 0.5f * ConfigTblPtr->ACC_HOR_MAX * DeltaT * DeltaT;
+			PositionSetpoint[0] = PosSp[0];
+			PositionSetpoint[1] = PosSp[1];
 
 			PositionHoldEngaged = true;
 		}
@@ -1391,7 +1395,7 @@ void MPC::ControlManual(float dt) //UPDATED
 		PositionSetpoint[2] = Position[2];
 		/* Request velocity setpoint to be used, instead of altitude setpoint */
 		RunAltControl = false;
-		VelocitySetpoint[2] = man_vel_sp[2];
+		VelocitySetpoint[2] = ManVelSp[2];
 	}
 
 	if (!PositionHoldEngaged)
@@ -1400,8 +1404,8 @@ void MPC::ControlManual(float dt) //UPDATED
 		PositionSetpoint[1] = Position[1];
 		/* Request velocity setpoint to be used, instead of position setpoint */
 		RunPosControl = false;
-		VelocitySetpoint[0] = man_vel_sp[0];
-		VelocitySetpoint[1] = man_vel_sp[1];
+		VelocitySetpoint[0] = ManVelSp[0];
+		VelocitySetpoint[1] = ManVelSp[1];
 	}
 
 	ControlPosition(dt);
@@ -1409,7 +1413,7 @@ void MPC::ControlManual(float dt) //UPDATED
 
 
 
-void MPC::ControlNonManual(float dt) // UPDATED
+void MPC::ControlNonManual(float dt) // NEW DONE
 {
 	/* Select control source. */
 	if(VehicleControlModeMsg.ControlOffboardEnabled)
@@ -1417,7 +1421,6 @@ void MPC::ControlNonManual(float dt) // UPDATED
 		/* Offboard control */
 		ControlOffboard(dt);
 		ModeAuto = false;
-
 	}
 	else
 	{
@@ -1429,44 +1432,40 @@ void MPC::ControlNonManual(float dt) // UPDATED
 	}
 
 	/* Guard against any bad velocity values. */
-	bool velocity_valid = isfinite(PositionSetpointTripletMsg.Current.VX) &&
+	bool VelocityValid = isfinite(PositionSetpointTripletMsg.Current.VX) &&
 			isfinite(PositionSetpointTripletMsg.Current.VY) &&
 			PositionSetpointTripletMsg.Current.VelocityValid;
 
 	/* Do not go slower than the follow target velocity when position tracking
-	 * is active (set to valid)
-	 */
+	 * is active (set to valid)	 */
 	if (PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_FOLLOW_TARGET &&
-	    velocity_valid &&
+	    VelocityValid &&
 		PositionSetpointTripletMsg.Current.PositionValid)
 	{
-		math::Vector3F ft_vel(PositionSetpointTripletMsg.Current.VX, PositionSetpointTripletMsg.Current.VY, 0);
-		float cos_ratio = (ft_vel * VelocitySetpoint) / (ft_vel.Length() * VelocitySetpoint.Length());
+		math::Vector3F FtVel(PositionSetpointTripletMsg.Current.VX, PositionSetpointTripletMsg.Current.VY, 0);
+		float CosRatio = (FtVel * VelocitySetpoint) / (FtVel.Length() * VelocitySetpoint.Length());
 
 		/* Only override velocity set points when uav is traveling in same
 		 * direction as target and vector component is greater than
-		 * calculated position set point velocity component.
-		 */
-		if (cos_ratio > 0)
+		 * calculated position set point velocity component. */
+		if (CosRatio > 0)
 		{
-			ft_vel = ft_vel * cos_ratio;
+			FtVel = FtVel * CosRatio;
 			/* Min speed a little faster than target vel. */
-			ft_vel = ft_vel + ft_vel.Normalized() * 1.5f;
+			FtVel = FtVel + FtVel.Normalized() * 1.5f;
 
 		}
 		else
 		{
-			ft_vel.Zero();
+			FtVel.Zero();
 		}
 
-		VelocitySetpoint[0] = fabsf(ft_vel[0]) > fabsf(VelocitySetpoint[0]) ? ft_vel[0] : VelocitySetpoint[0];
-		VelocitySetpoint[1] = fabsf(ft_vel[1]) > fabsf(VelocitySetpoint[1]) ? ft_vel[1] : VelocitySetpoint[1];
-
 		/* Track target using velocity only. */
-
+		VelocitySetpoint[0] = fabsf(FtVel[0]) > fabsf(VelocitySetpoint[0]) ? FtVel[0] : VelocitySetpoint[0];
+		VelocitySetpoint[1] = fabsf(FtVel[1]) > fabsf(VelocitySetpoint[1]) ? FtVel[1] : VelocitySetpoint[1];
 	}
 	else if(PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_FOLLOW_TARGET &&
-		   velocity_valid)
+		   VelocityValid)
 	{
 		VelocitySetpoint[0] = PositionSetpointTripletMsg.Current.VX;
 		VelocitySetpoint[1] = PositionSetpointTripletMsg.Current.VY;
@@ -1485,8 +1484,8 @@ void MPC::ControlNonManual(float dt) // UPDATED
 	{
 		/* Idle state, don't run controller and set zero thrust. */
 		RSetpoint.Identity();
-		math::Quaternion qd(RSetpoint);
-		qd.copyTo(VehicleAttitudeSetpointMsg.Q_D);
+		math::Quaternion Qd(RSetpoint);
+		Qd.copyTo(VehicleAttitudeSetpointMsg.Q_D);
 		VehicleAttitudeSetpointMsg.Q_D_Valid = true;
 
 		VehicleAttitudeSetpointMsg.RollBody = 0.0f;
@@ -1504,7 +1503,7 @@ void MPC::ControlNonManual(float dt) // UPDATED
 
 
 
-float MPC::ThrottleCurve(float ctl, float ctr) // GOOD
+float MPC::ThrottleCurve(float ctl, float ctr) // NEW DONE
 {
 	float result;
 
@@ -1524,7 +1523,7 @@ float MPC::ThrottleCurve(float ctl, float ctr) // GOOD
 
 
 
-void MPC::ResetPosSetpoint(void) // DONE
+void MPC::ResetPosSetpoint(void) // NEW DONE
 {
 	if (ResetPositionSetpoint)
 	{
@@ -1540,7 +1539,7 @@ void MPC::ResetPosSetpoint(void) // DONE
 
 
 
-void MPC::ResetAltSetpoint(void) // DONE
+void MPC::ResetAltSetpoint(void) // NEW DONE
 {
 	if (ResetAltitudeSetpoint)
 	{
@@ -1573,7 +1572,7 @@ void MPC::ControlPosition(float dt) // Updated
 
 
 
-void MPC::ControlOffboard(float dt) // UPDATED
+void MPC::ControlOffboard(float dt) // NEW DONE
 {
 	if(PositionSetpointTripletMsg.Current.Valid)
 	{
@@ -1637,9 +1636,7 @@ void MPC::ControlOffboard(float dt) // UPDATED
 			/* Control altitude as it is enabled. */
 			PositionSetpoint[2] = PositionSetpointTripletMsg.Current.Z;
 			RunAltControl = true;
-
 			HoldOffboardZ = false;
-
 		}
 		else if (VehicleControlModeMsg.ControlClimbRateEnabled && PositionSetpointTripletMsg.Current.VelocityValid)
 		{
@@ -1656,14 +1653,12 @@ void MPC::ControlOffboard(float dt) // UPDATED
 				}
 
 				RunAltControl = true;
-
 			}
 			else
 			{
 				/* Set position setpoint move rate */
 				VelocitySetpoint[2] = PositionSetpointTripletMsg.Current.VZ;
 				RunAltControl = false;
-
 				HoldOffboardZ = false;
 			}
 		}
@@ -1674,21 +1669,21 @@ void MPC::ControlOffboard(float dt) // UPDATED
 		}
 		else if (PositionSetpointTripletMsg.Current.YawspeedValid)
 		{
-			float yaw_target = _wrap_pi(VehicleAttitudeSetpointMsg.YawBody + PositionSetpointTripletMsg.Current.Yawspeed * dt);
-						float yaw_offs = _wrap_pi(yaw_target - Yaw);
-						const float yaw_rate_max = (math::radians(ConfigTblPtr->MAN_Y_MAX) < math::radians(ConfigTblPtr->MC_YAWRATE_MAX)) ? math::radians(ConfigTblPtr->MAN_Y_MAX) :
-								math::radians(ConfigTblPtr->MC_YAWRATE_MAX);
-						const float yaw_offset_max = yaw_rate_max / math::radians(ConfigTblPtr->MC_YAW_P);
+			float YawTarget = _wrap_pi(VehicleAttitudeSetpointMsg.YawBody + PositionSetpointTripletMsg.Current.Yawspeed * dt);
+			float YawOffs = _wrap_pi(YawTarget - Yaw);
+			// TODO: Check if these need to be radians
+			const float YawRateMax = (math::radians(ConfigTblPtr->MAN_Y_MAX) < math::radians(ConfigTblPtr->MC_YAWRATE_MAX)) ? math::radians(ConfigTblPtr->MAN_Y_MAX) :
+					math::radians(ConfigTblPtr->MC_YAWRATE_MAX);
+			const float YawOffsetMax = YawRateMax / math::radians(ConfigTblPtr->MC_YAW_P);
 
-						// If the yaw offset became too big for the system to track stop
-						// shifting it, only allow if it would make the offset smaller again.
-						if (fabsf(yaw_offs) < yaw_offset_max ||
-						    (PositionSetpointTripletMsg.Current.Yawspeed > 0 && yaw_offs < 0) ||
-						    (PositionSetpointTripletMsg.Current.Yawspeed < 0 && yaw_offs > 0)) {
-							VehicleAttitudeSetpointMsg.YawBody = yaw_target;
-						}
-
-			VehicleAttitudeSetpointMsg.YawBody = VehicleAttitudeSetpointMsg.YawBody + PositionSetpointTripletMsg.Current.Yawspeed * dt;
+			// If the yaw offset became too big for the system to track stop
+			// shifting it, only allow if it would make the offset smaller again.
+			if (fabsf(YawOffs) < YawOffsetMax ||
+				(PositionSetpointTripletMsg.Current.Yawspeed > 0 && YawOffs < 0) ||
+				(PositionSetpointTripletMsg.Current.Yawspeed < 0 && YawOffs > 0))
+			{
+				VehicleAttitudeSetpointMsg.YawBody = YawTarget;
+			}
 		}
 	}
 	else
@@ -1960,20 +1955,20 @@ void MPC::ControlAuto(float dt) // DONE
 			if ((vec_prev_to_current.Length()  > ConfigTblPtr->NAV_ACC_RAD) && !stay_at_current_pos) {
 
 				/* normalize prev-current line (always > nav_rad) */
-				math::Vector2F unit_prev_to_current = vec_prev_to_current.Normalized();
+				math::Vector2F UnitPrevToCurrent = vec_prev_to_current.Normalized();
 
 				/* unit vector from current to next */
-				math::Vector2F unit_current_to_next(0.0f, 0.0f);
+				math::Vector2F UnitCurrentToNext(0.0f, 0.0f);
 
 				if (next_setpoint_valid) {
-					unit_current_to_next = math::Vector2F((next_sp[0] - pos_sp[0]), (next_sp[1] - pos_sp[1]));
-					unit_current_to_next = (unit_current_to_next.Length() > SIGMA_NORM) ? unit_current_to_next.Normalized() :
-								   unit_current_to_next;
+					UnitCurrentToNext = math::Vector2F((next_sp[0] - pos_sp[0]), (next_sp[1] - pos_sp[1]));
+					UnitCurrentToNext = (UnitCurrentToNext.Length() > SIGMA_NORM) ? UnitCurrentToNext.Normalized() :
+								   UnitCurrentToNext;
 				}
 
 				/* point on line closest to pos */
-				math::Vector2F closest_point = math::Vector2F(PreviousPositionSetpoint[0], PreviousPositionSetpoint[1]) + unit_prev_to_current *
-								 (math::Vector2F((Position[0] - PreviousPositionSetpoint[0]), (Position[1] - PreviousPositionSetpoint[1])) * unit_prev_to_current);
+				math::Vector2F closest_point = math::Vector2F(PreviousPositionSetpoint[0], PreviousPositionSetpoint[1]) + UnitPrevToCurrent *
+								 (math::Vector2F((Position[0] - PreviousPositionSetpoint[0]), (Position[1] - PreviousPositionSetpoint[1])) * UnitPrevToCurrent);
 
 				math::Vector2F vec_closest_to_current((CurrentPositionSetpoint[0] - closest_point[0]), (CurrentPositionSetpoint[1] - closest_point[1]));
 
@@ -1981,7 +1976,7 @@ void MPC::ControlAuto(float dt) // DONE
 				math::Vector2F vec_prev_to_pos((Position[0] - PreviousPositionSetpoint[0]), (Position[1] - PreviousPositionSetpoint[1]));
 
 				/* current velocity along track */
-				float vel_sp_along_track_prev = math::Vector2F(VelocitySetpoint[0], VelocitySetpoint[1]) * unit_prev_to_current;
+				float vel_sp_along_track_prev = math::Vector2F(VelocitySetpoint[0], VelocitySetpoint[1]) * UnitPrevToCurrent;
 
 				/* distance to target when brake should occur */
 				float target_threshold_xy = 1.5f * GetCruisingSpeedXY();
@@ -1994,10 +1989,10 @@ void MPC::ControlAuto(float dt) // DONE
 				bool is_2_target_threshold = vec_prev_to_current.Length() >= 2.0f * target_threshold_xy;
 
 				/* check if the current setpoint is behind */
-				bool current_behind = ((vec_pos_to_current * -1.0f) * unit_prev_to_current) > 0.0f;
+				bool current_behind = ((vec_pos_to_current * -1.0f) * UnitPrevToCurrent) > 0.0f;
 
 				/* check if the previous is in front */
-				bool previous_in_front = (vec_prev_to_pos * unit_prev_to_current) < 0.0f;
+				bool previous_in_front = (vec_prev_to_pos * UnitPrevToCurrent) < 0.0f;
 
 				/* default velocity along line prev-current */
 				float vel_sp_along_track = GetCruisingSpeedXY();
@@ -2047,7 +2042,7 @@ void MPC::ControlAuto(float dt) // DONE
 						/* we want to pass and need to compute the desired velocity close to current setpoint */
 						if (next_setpoint_valid &&  !(PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_LOITER)) {
 							/* get velocity close to current that depends on angle between prev-current and current-next line */
-							vel_close = GetVelClose(unit_prev_to_current, unit_current_to_next);
+							vel_close = GetVelClose(UnitPrevToCurrent, UnitCurrentToNext);
 							acceptance_radius = ConfigTblPtr->NAV_ACC_RAD;
 						}
 
@@ -2092,7 +2087,7 @@ void MPC::ControlAuto(float dt) // DONE
 						/* since we have a next setpoint use the angle prev-current-next to compute velocity setpoint limit */
 
 						/* get velocity close to current that depends on angle between prev-current and current-next line */
-						float vel_close = GetVelClose(unit_prev_to_current, unit_current_to_next);
+						float vel_close = GetVelClose(UnitPrevToCurrent, UnitCurrentToNext);
 
 						/* compute velocity along line which depends on distance to current setpoint */
 						if (vec_closest_to_current.Length() < ConfigTblPtr->NAV_ACC_RAD) {
@@ -2159,8 +2154,8 @@ void MPC::ControlAuto(float dt) // DONE
 						vel_sp_along_track = sqrtf(GetCruisingSpeedXY() * GetCruisingSpeedXY() - vel_sp_orthogonal * vel_sp_orthogonal);
 					}
 
-					pos_sp[0] = closest_point[0] + unit_prev_to_current[0] * vel_sp_along_track / PosP[0];
-					pos_sp[1] = closest_point[1] + unit_prev_to_current[1] * vel_sp_along_track / PosP[1];
+					pos_sp[0] = closest_point[0] + UnitPrevToCurrent[0] * vel_sp_along_track / PosP[0];
+					pos_sp[1] = closest_point[1] + UnitPrevToCurrent[1] * vel_sp_along_track / PosP[1];
 
 				} else if (current_behind) {
 					/* current is behind */
@@ -2735,18 +2730,16 @@ void MPC::CalculateThrustSetpoint(float dt) // UPDATED
 
 
 
-float MPC::GetCruisingSpeedXY(void) // Updated
+float MPC::GetCruisingSpeedXY(void) // NEW DONE
 {
-	float res;
+	float Result = 0.0f;
 
-	/*
-	 * In missions, the user can choose cruising speed different to default.
-	 */
-	res = ((isfinite(PositionSetpointTripletMsg.Current.CruisingSpeed) &&
+	/* In missions, the user can choose cruising speed different to default. */
+	Result = ((isfinite(PositionSetpointTripletMsg.Current.CruisingSpeed) &&
 			!(PositionSetpointTripletMsg.Current.CruisingSpeed < 0.0f)) ?
 					PositionSetpointTripletMsg.Current.CruisingSpeed : ConfigTblPtr->XY_CRUISE);
 
-	return res;
+	return Result;
 }
 
 
@@ -2862,77 +2855,84 @@ void MPC::UpdateParamsFromTable(void)
 /**
  * Limit altitude based on several conditions
  */
-void MPC::LimitAltitude(void)
+void MPC::LimitAltitude(void) // NEW DONE
 {
+	float AltitudeAboveHome = 0.0f;
+	float DeltaT = 0.0f;
+	float PosZNext = 0.0f;
+
 	if (VehicleLandDetectedMsg.AltMax < 0.0f)
 	{
-		// there is no altitude limitation present
-		//goto MPC_LimitAltitude_ExitTag;
-		return;
+		/* There is no altitude limitation present */
+		goto MPC_LimitAltitude_ExitTag;
 	}
 
-	float AltitudeAboveHome = -(Position[2] - HomePositionMsg.Z);
+	AltitudeAboveHome = -(Position[2] - HomePositionMsg.Z);
 
 	if (RunAltControl && (AltitudeAboveHome > VehicleLandDetectedMsg.AltMax))
 	{
-		// we are above maximum altitude
+		/* We are above maximum altitude */
 		PositionSetpoint[2] = -VehicleLandDetectedMsg.AltMax +  HomePositionMsg.Z;
 	}
 	else if (!RunAltControl && VelocitySetpoint[2] <= 0.0f)
 	{
-		// we want to fly upwards: check if vehicle does not exceed altitude
+		/* We want to fly upwards: check if vehicle does not exceed altitude */
 
-		// time to reach zero velocity
-		float delta_t = -Velocity[2] / ConfigTblPtr->ACC_DOWN_MAX;
+		/* Time to reach zero velocity */
+		DeltaT = -Velocity[2] / ConfigTblPtr->ACC_DOWN_MAX;
 
-		// predict next position based on current position, velocity, max acceleration downwards and time to reach zero velocity
-		float pos_z_next = Position[2] + Velocity[2] * delta_t + 0.5f * ConfigTblPtr->ACC_DOWN_MAX * delta_t * delta_t;
+		/* Predict next position based on current position, velocity, max acceleration downwards and time to reach zero velocity */
+		PosZNext = Position[2] + Velocity[2] * DeltaT + 0.5f * ConfigTblPtr->ACC_DOWN_MAX * DeltaT * DeltaT;
 
-		if (-(pos_z_next - HomePositionMsg.Z) > VehicleLandDetectedMsg.AltMax) {
-			// prevent the vehicle from exceeding maximum altitude by switching back to altitude control with maximum altitude as setpoint
+		if (-(PosZNext - HomePositionMsg.Z) > VehicleLandDetectedMsg.AltMax) {
+			/* Prevent vehicle from exceeding maximum altitude by switching back to altitude control with maximum altitude as setpoint */
 			PositionSetpoint[2] = -VehicleLandDetectedMsg.AltMax + HomePositionMsg.Z;
 			RunAltControl = true;
 		}
 	}
 
+MPC_LimitAltitude_ExitTag:
 	return;
 }
 
-void MPC::ApplyVelocitySetpointSlewRate(float dt) // UPDATED
+void MPC::ApplyVelocitySetpointSlewRate(float dt) // NEW DONE
 {
-	math::Vector2F vel_sp_xy(VelocitySetpoint[0], VelocitySetpoint[1]);
-	math::Vector2F vel_sp_prev_xy(VelocitySetpointPrevious[0], VelocitySetpointPrevious[1]);
-	math::Vector2F vel_xy(Velocity[0], Velocity[1]);
-	math::Vector2F acc_xy = (vel_sp_xy - vel_sp_prev_xy) / dt;
+	math::Vector2F VelSpXy(VelocitySetpoint[0], VelocitySetpoint[1]);
+	math::Vector2F VelSpPrevXy(VelocitySetpointPrevious[0], VelocitySetpointPrevious[1]);
+	math::Vector2F AccXy = (VelSpXy - VelSpPrevXy) / dt;
 
 	/* limit total horizontal acceleration */
-	if (acc_xy.Length() > _acceleration_state_dependent_xy) {
-		vel_sp_xy = acc_xy.Normalized() * _acceleration_state_dependent_xy * dt + vel_sp_prev_xy;
-		VelocitySetpoint[0] = vel_sp_xy[0];
-		VelocitySetpoint[1] = vel_sp_xy[1];
+	if (AccXy.Length() > AccelerationStateDependentXY)
+	{
+		VelSpXy = AccXy.Normalized() * AccelerationStateDependentXY * dt + VelSpPrevXy;
+		VelocitySetpoint[0] = VelSpXy[0];
+		VelocitySetpoint[1] = VelSpXy[1];
 	}
 
 	/* limit vertical acceleration */
-	float acc_z = (VelocitySetpoint[2] - VelocitySetpointPrevious[2]) / dt;
-	float max_acc_z;
+	float AccZ = (VelocitySetpoint[2] - VelocitySetpointPrevious[2]) / dt;
+	float MaxAccZ;
 
-	if (VehicleControlModeMsg.ControlManualEnabled) {
-		max_acc_z = (acc_z < 0.0f) ? -_acceleration_state_dependent_z : _acceleration_state_dependent_z;
-
-	} else {
-		max_acc_z = (acc_z < 0.0f) ? -ConfigTblPtr->ACC_UP_MAX : ConfigTblPtr->ACC_DOWN_MAX;
+	if (VehicleControlModeMsg.ControlManualEnabled)
+	{
+		MaxAccZ = (AccZ < 0.0f) ? -AccelerationStateDependentZ : AccelerationStateDependentZ;
+	}
+	else
+	{
+		MaxAccZ = (AccZ < 0.0f) ? -ConfigTblPtr->ACC_UP_MAX : ConfigTblPtr->ACC_DOWN_MAX;
 	}
 
-	if (fabsf(acc_z) > fabsf(max_acc_z)) {
-		VelocitySetpoint[2] = max_acc_z * dt + VelocitySetpointPrevious[2];
+	if (fabsf(AccZ) > fabsf(MaxAccZ))
+	{
+		VelocitySetpoint[2] = MaxAccZ * dt + VelocitySetpointPrevious[2];
 	}
 }
 
 
 
-bool MPC::InAutoTakeoff(void) // Updated
+bool MPC::InAutoTakeoff(void) // NEW DONE
 {
-	bool res = false;
+	bool Result = false;
 
 	/*
 	 * In auto mode, check if we do a takeoff
@@ -2941,152 +2941,147 @@ bool MPC::InAutoTakeoff(void) // Updated
 			PositionSetpointTripletMsg.Current.Type == PX4_SETPOINT_TYPE_TAKEOFF)
 	{
 	    /* We are in takeoff mode. */
-	    res = true;
+		Result = true;
 	}
 	else if( VehicleControlModeMsg.ControlOffboardEnabled)
 	{
-		/* We are in takeoff mode. */
-		res = true;
+		/* Assume true in offboard mode. */
+		Result = true;
 	}
 
-	return res;
+	return Result;
 }
 
-float MPC::GetVelClose(const math::Vector2F &unit_prev_to_current, const math::Vector2F &unit_current_to_next) // Updated
+float MPC::GetVelClose(const math::Vector2F &UnitPrevToCurrent, const math::Vector2F &UnitCurrentToNext) // NEW DONE
 {
-	/* minimum cruise speed when passing waypoint */
-	float min_cruise_speed = 1.0f;
+	/* Minimum cruise speed when passing waypoint */
+	float MinCruiseSpeed = 1.0f;
+	float MiddleCruiseSpeed = ConfigTblPtr->MPC_CRUISE_90;
+	bool UseLinearApproach = false;
+	float Angle = 2.0f;
+	float Slope = 0.0f;
+	float VelClose = 0.0f;
+	float a = 0.0f;
+	float b = 0.0f;
+	float c = 0.0f;
 
-	/* make sure that cruise speed is larger than minimum*/
-	if ((GetCruisingSpeedXY() - min_cruise_speed) < SIGMA_NORM)
+	/* Make sure that cruise speed is larger than minimum*/
+	if ((GetCruisingSpeedXY() - MinCruiseSpeed) < SIGMA_NORM)
 	{
-		return GetCruisingSpeedXY();
+		VelClose = GetCruisingSpeedXY();
+		goto MPC_GetVelClose_ExitTag;
 	}
 
-	/* middle cruise speed is a number between maximum cruising speed and minimum cruising speed and corresponds to speed at angle of 90degrees
+	/* Middle cruise speed is a number between maximum cruising speed and minimum cruising speed and corresponds to speed at angle of 90degrees
 	 * it needs to be always larger than minimum cruise speed */
-	float middle_cruise_speed = ConfigTblPtr->MPC_CRUISE_90;
-
-	if ((middle_cruise_speed - min_cruise_speed) < SIGMA_NORM)
+	if ((MiddleCruiseSpeed - MinCruiseSpeed) < SIGMA_NORM)
 	{
-		middle_cruise_speed = min_cruise_speed + SIGMA_NORM;
+		MiddleCruiseSpeed = MinCruiseSpeed + SIGMA_NORM;
 	}
 
-	if ((GetCruisingSpeedXY() - middle_cruise_speed) < SIGMA_NORM)
+	if ((GetCruisingSpeedXY() - MiddleCruiseSpeed) < SIGMA_NORM)
 	{
-		middle_cruise_speed = (GetCruisingSpeedXY() + min_cruise_speed) * 0.5f;
+		MiddleCruiseSpeed = (GetCruisingSpeedXY() + MinCruiseSpeed) * 0.5f;
 	}
 
-	/* if middle cruise speed is exactly in the middle, then compute
-	 * vel_close linearly
-	 */
-	bool use_linear_approach = false;
-
-	if (((GetCruisingSpeedXY() + min_cruise_speed) * 0.5f) - middle_cruise_speed < SIGMA_NORM)
+	/* If middle cruise speed is exactly in the middle, then compute
+	 * vel_close linearly */
+	if (((GetCruisingSpeedXY() + MinCruiseSpeed) * 0.5f) - MiddleCruiseSpeed < SIGMA_NORM)
 	{
-		use_linear_approach = true;
+		UseLinearApproach = true;
 	}
 
-	/* angle = cos(x) + 1.0
-	 * angle goes from 0 to 2 with 0 = large angle, 2 = small angle:   0 = PI ; 2 = PI*0 */
-	float angle = 2.0f;
-
-	if (unit_current_to_next.Length() > SIGMA_NORM)
+	/* Angle = cos(x) + 1.0
+	 * Angle goes from 0 to 2 with 0 = large angle, 2 = small angle:   0 = PI ; 2 = PI*0 */
+	if (UnitCurrentToNext.Length() > SIGMA_NORM)
 	{
-		angle = unit_current_to_next * (unit_prev_to_current * -1.0f) + 1.0f;
+		Angle = UnitCurrentToNext * (UnitPrevToCurrent * -1.0f) + 1.0f;
 	}
 
-	/* compute velocity target close to waypoint */
-	float vel_close;
-
-	if (use_linear_approach)
+	/* Compute velocity target close to waypoint */
+	if (UseLinearApproach)
 	{
-
-		/* velocity close to target adjusted to angle
-		 * vel_close =  m*x+q
-		 */
-		float slope = -(GetCruisingSpeedXY() - min_cruise_speed) / 2.0f;
-		vel_close = slope * angle + GetCruisingSpeedXY();
+		/* Velocity close to target adjusted to angle vel_close = m*x+q */
+		Slope = -(GetCruisingSpeedXY() - MinCruiseSpeed) / 2.0f;
+		VelClose = Slope * Angle + GetCruisingSpeedXY();
 
 	}
 	else
 	{
-		/* velocity close to target adjusted to angle
-		 * vel_close = a *b ^x + c; where at angle = 0 -> vel_close = vel_cruise; angle = 1 -> vel_close = middle_cruise_speed (this means that at 90degrees
-		 * the velocity at target is middle_cruise_speed);
+		/* Velocity close to target adjusted to angle
+		 * vel_close = a *b ^x + c; where at angle = 0 -> vel_close = vel_cruise; angle = 1 -> vel_close = MiddleCruiseSpeed (this means that at 90degrees
+		 * the velocity at target is MiddleCruiseSpeed);
 		 * angle = 2 -> vel_close = min_cruising_speed */
 
-		/* from maximum cruise speed, minimum cruise speed and middle cruise speed compute constants a, b and c */
-		float a = -((middle_cruise_speed -  GetCruisingSpeedXY()) * (middle_cruise_speed -  GetCruisingSpeedXY())) /
-			  (2.0f * middle_cruise_speed - GetCruisingSpeedXY() - min_cruise_speed);
-		float c =  GetCruisingSpeedXY() - a;
-		float b = (middle_cruise_speed - c) / a;
-		vel_close = a * powf(b, angle) + c;
+		/* From maximum cruise speed, minimum cruise speed and middle cruise speed compute constants a, b and c */
+		a = -((MiddleCruiseSpeed -  GetCruisingSpeedXY()) * (MiddleCruiseSpeed -  GetCruisingSpeedXY())) /
+			  (2.0f * MiddleCruiseSpeed - GetCruisingSpeedXY() - MinCruiseSpeed);
+		c =  GetCruisingSpeedXY() - a;
+		b = (MiddleCruiseSpeed - c) / a;
+		VelClose = a * powf(b, Angle) + c;
 	}
 
+MPC_GetVelClose_ExitTag:
 	/* vel_close needs to be in between max and min */
-	return math::constrain(vel_close, min_cruise_speed, GetCruisingSpeedXY());
+	return math::constrain(VelClose, MinCruiseSpeed, GetCruisingSpeedXY());
 }
 
-void MPC::SetManualAccelerationZ(float &max_acceleration, const float stick_z, const float dt) // Updated
+void MPC::SetManualAccelerationZ(float &MaxAcceleration, const float StickZ, const float Dt) // NEW DONE
 {
-	/* in manual altitude control apply acceleration limit based on stick input
+	/* In manual altitude control apply acceleration limit based on stick input
 	 * we consider two states
 	 * 1.) brake
 	 * 2.) accelerate */
 
-	/* check if zero input stick */
-	const bool is_current_zero = (fabsf(stick_z) <= FLT_EPSILON);
+	/* Check if zero input stick */
+	const bool IsCurrentZero = (fabsf(StickZ) <= FLT_EPSILON);
 
-	/* default is acceleration */
-	manual_stick_input intention = acceleration;
+	/* Default is acceleration */
+	manual_stick_input Intention = ACCELERATION;
 
-	/* check zero input stick */
-	if (is_current_zero) {
-		intention = brake;
+	float Jerk = 0.0f;
+
+	/* Check zero input stick */
+	if (IsCurrentZero) {
+		Intention = BRAKE;
 	}
 
-	/* get max and min acceleration where min acceleration is just 1/5 of max acceleration */
-	max_acceleration = (stick_z <= 0.0f) ? ConfigTblPtr->ACC_UP_MAX : ConfigTblPtr->ACC_DOWN_MAX;
+	/* Get max and min acceleration where min acceleration is just 1/5 of max acceleration */
+	MaxAcceleration = (StickZ <= 0.0f) ? ConfigTblPtr->ACC_UP_MAX : ConfigTblPtr->ACC_DOWN_MAX;
 
-	/*
-	 * update user input
-	 */
-	if ((_user_intention_z != brake) && (intention  == brake)) {
+	/* Update user input */
+	if ((UserIntentionZ != BRAKE) && (Intention  == BRAKE)) {
 
-		/* we start with lowest acceleration */
-		_acceleration_state_dependent_z = ConfigTblPtr->ACC_DOWN_MAX;
+		/* We start with lowest acceleration */
+		AccelerationStateDependentZ = ConfigTblPtr->ACC_DOWN_MAX;
 
-		/* reset slew rate */
+		/* Reset slew rate */
 		VelocitySetpointPrevious[2] = Velocity[2];
-		_user_intention_z = brake;
+		UserIntentionZ = BRAKE;
 	}
 
-	_user_intention_z = intention;
+	UserIntentionZ = Intention;
 
-	/*
-	 * apply acceleration depending on state
-	 */
-	if (_user_intention_z == brake) {
+	/* Apply acceleration depending on state */
+	if (UserIntentionZ == BRAKE) {
 
-		/* limit jerk when braking to zero */
-		float jerk = (ConfigTblPtr->ACC_UP_MAX - _acceleration_state_dependent_z) / dt;
+		/* Limit jerk when braking to zero */
+		Jerk = (ConfigTblPtr->ACC_UP_MAX - AccelerationStateDependentZ) / Dt;
 
-		if (jerk > _manual_jerk_limit_z) {
-			_acceleration_state_dependent_z = _manual_jerk_limit_z * dt + _acceleration_state_dependent_z;
+		if (Jerk > ManualJerkLimitZ) {
+			AccelerationStateDependentZ = ManualJerkLimitZ * Dt + AccelerationStateDependentZ;
 
 		} else {
-			_acceleration_state_dependent_z = ConfigTblPtr->ACC_UP_MAX;
+			AccelerationStateDependentZ = ConfigTblPtr->ACC_UP_MAX;
 		}
 	}
-
-	if (_user_intention_z == acceleration) {
-		_acceleration_state_dependent_z = (max_acceleration - ConfigTblPtr->ACC_DOWN_MAX) * fabsf(
-				stick_z) + ConfigTblPtr->ACC_DOWN_MAX;
+	else if (UserIntentionZ == ACCELERATION) {
+		AccelerationStateDependentZ = (MaxAcceleration - ConfigTblPtr->ACC_DOWN_MAX) * fabsf(
+				StickZ) + ConfigTblPtr->ACC_DOWN_MAX;
 	}
 }
 
-void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt) // Updated
+void MPC::SetManualAccelerationXY(math::Vector2F &StickXy, const float Dt) // NEW DONE
 {
 
 	/*
@@ -3097,201 +3092,217 @@ void MPC::SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt) // U
 	 * 4. user wants to decelerate
 	 */
 
-	/* get normalized stick input vector */
-	math::Vector2F stick_xy_norm = (stick_xy.Length() > 0.0f) ? stick_xy.Normalized() : stick_xy;
-	math::Vector2F stick_xy_prev_norm = (_stick_input_xy_prev.Length() > 0.0f) ? _stick_input_xy_prev.Normalized() :
-					      _stick_input_xy_prev;
+	/* Get normalized stick input vector */
+	math::Vector2F StickXyNorm = (StickXy.Length() > 0.0f) ? StickXy.Normalized() : StickXy;
+	math::Vector2F StickXyPrevNorm = (StickInputXyPrev.Length() > 0.0f) ? StickInputXyPrev.Normalized() :
+					      StickInputXyPrev;
 
-	/* check if stick direction and current velocity are within 60angle */
-	const bool is_aligned = (stick_xy_norm * stick_xy_prev_norm) > 0.5f;
+	/* Check if stick direction and current velocity are within 60angle */
+	const bool IsAligned = (StickXyNorm * StickXyPrevNorm) > 0.5f;
 
-	/* check if zero input stick */
-	const bool is_prev_zero = (fabsf(_stick_input_xy_prev.Length()) <= FLT_EPSILON);
-	const bool is_current_zero = (fabsf(stick_xy.Length()) <= FLT_EPSILON);
+	/* Check if zero input stick */
+	const bool IsPrevZero = (fabsf(StickInputXyPrev.Length()) <= FLT_EPSILON);
+	const bool IsCurrentZero = (fabsf(StickXy.Length()) <= FLT_EPSILON);
 
-	/* check acceleration */
-	const bool do_acceleration = is_prev_zero || (is_aligned &&
-				     ((stick_xy.Length() > _stick_input_xy_prev.Length()) || (fabsf(stick_xy.Length() - 1.0f) < FLT_EPSILON)));
+	/* Check intentions */
+	// TODO: Should this be IsPrevZero &&?
+	const bool DoAcceleration = IsPrevZero || (IsAligned &&
+				     ((StickXy.Length() > StickInputXyPrev.Length()) || (fabsf(StickXy.Length() - 1.0f) < FLT_EPSILON)));
+	const bool DoDeceleration = (IsAligned && (StickXy.Length() <= StickInputXyPrev.Length()));
+	const bool DoDirectionChange = !IsAligned;
 
-	const bool do_deceleration = (is_aligned && (stick_xy.Length() <= _stick_input_xy_prev.Length()));
+	manual_stick_input Intention;
 
-	const bool do_direction_change = !is_aligned;
-
-	manual_stick_input intention;
-
-	if (is_current_zero) {
-		/* we want to stop */
-		intention = brake;
-
-	} else if (do_acceleration) {
-		/* we do manual acceleration */
-		intention = acceleration;
-
-	} else if (do_deceleration) {
-		/* we do manual deceleration */
-		intention = deceleration;
-
-	} else if (do_direction_change) {
-		/* we have a direction change */
-		intention = direction_change;
-
-	} else {
-		/* catchall: acceleration */
-		intention = acceleration;
+	if (IsCurrentZero)
+	{
+		/* We want to stop */
+		Intention = BRAKE;
+	}
+	else if (DoAcceleration)
+	{
+		/* We do manual acceleration */
+		Intention = ACCELERATION;
+	}
+	else if (DoDeceleration)
+	{
+		/* We do manual deceleration */
+		Intention = DECELERATION;
+	}
+	else if (DoDirectionChange)
+	{
+		/* We have a direction change */
+		Intention = DIRECTION_CHANGE;
+	}
+	else
+	{
+		/* Catch all: acceleration */
+		Intention = ACCELERATION;
 	}
 
+	/* Update user intention */
 
-	/*
-	 * update user intention
-	 */
-
-	/* we always want to break starting with slow deceleration */
-	if ((_user_intention_xy != brake) && (intention  == brake)) {
-
-		if (ConfigTblPtr->MPC_JERK_MAX > ConfigTblPtr->MPC_JERK_MIN) {
-			_manual_jerk_limit_xy = (ConfigTblPtr->MPC_JERK_MAX - ConfigTblPtr->MPC_JERK_MIN) / ConfigTblPtr->MPC_VEL_MANUAL *
+	/* We always want to brake starting with slow deceleration */
+	if ((UserIntentionXY != BRAKE) && (Intention  == BRAKE))
+	{
+		if (ConfigTblPtr->MPC_JERK_MAX > ConfigTblPtr->MPC_JERK_MIN)
+		{
+			ManualJerkLimitXY = (ConfigTblPtr->MPC_JERK_MAX - ConfigTblPtr->MPC_JERK_MIN) / ConfigTblPtr->MPC_VEL_MANUAL *
 						sqrtf(Velocity[0] * Velocity[0] + Velocity[1] * Velocity[1]) + ConfigTblPtr->MPC_JERK_MIN;
 
-			/* we start braking with lowest accleration */
-			_acceleration_state_dependent_xy = ConfigTblPtr->MPC_DEC_HOR_SLOW;
+			/* We start braking with lowest accleration */
+			AccelerationStateDependentXY = ConfigTblPtr->MPC_DEC_HOR_SLOW;
+		}
+		else
+		{
+			/* Set the jerk limit large since we don't know it better*/
+			ManualJerkLimitXY = 1000000.0f;
 
-		} else {
-
-			/* set the jerk limit large since we don't know it better*/
-			_manual_jerk_limit_xy = 1000000.f;
-
-			/* at brake we use max acceleration */
-			_acceleration_state_dependent_xy = ConfigTblPtr->ACC_HOR_MAX;
-
+			/* At brake we use max acceleration */
+			AccelerationStateDependentXY = ConfigTblPtr->ACC_HOR_MAX;
 		}
 
-		/* reset slew rate */
+		/* Reset slew rate */
 		VelocitySetpointPrevious[0] = Velocity[0];
 		VelocitySetpointPrevious[1] = Velocity[1];
-
 	}
 
-	switch (_user_intention_xy) {
-	case brake: {
-			if (intention != brake) {
-				_user_intention_xy = acceleration;
-				/* we initialize with lowest acceleration */
-				_acceleration_state_dependent_xy = ConfigTblPtr->MPC_DEC_HOR_SLOW;
-			}
-
-			break;
-		}
-
-	case direction_change: {
-			/* only exit direction change if brake or aligned */
-			math::Vector2F vel_xy(Velocity[0], Velocity[1]);
-			math::Vector2F vel_xy_norm = (vel_xy.Length() > 0.0f) ? vel_xy.Normalized() : vel_xy;
-			bool stick_vel_aligned = (vel_xy_norm * stick_xy_norm > 0.0f);
-
-			/* update manual direction change hysteresis */
-			_manual_direction_change_hysteresis.set_state_and_update(!stick_vel_aligned, PX4LIB_GetPX4TimeUs());
-
-
-			/* exit direction change if one of the condition is met */
-			if (intention == brake) {
-				_user_intention_xy = intention;
-
-			} else if (stick_vel_aligned) {
-				_user_intention_xy = acceleration;
-
-			} else if (_manual_direction_change_hysteresis.get_state()) {
-
-				/* TODO: find conditions which are always continuous
-				 * only if stick input is large*/
-				if (stick_xy.Length() > 0.6f) {
-					_acceleration_state_dependent_xy = ConfigTblPtr->ACC_HOR_MAX;
+	switch (UserIntentionXY)
+	{
+		case BRAKE:
+		{
+				if (Intention != BRAKE)
+				{
+					UserIntentionXY = ACCELERATION;
+					/* We initialize with lowest acceleration */
+					AccelerationStateDependentXY = ConfigTblPtr->MPC_DEC_HOR_SLOW;
 				}
-			}
 
-			break;
+				break;
 		}
 
-	case acceleration: {
-			_user_intention_xy = intention;
+		case DIRECTION_CHANGE:
+		{
+				/* Only exit direction change if brake or aligned */
+				math::Vector2F VelXy(Velocity[0], Velocity[1]);
+				math::Vector2F VelXyNorm = (VelXy.Length() > 0.0f) ? VelXy.Normalized() : VelXy;
+				bool StickVelAligned = (VelXyNorm * StickXyNorm > 0.0f);
 
-			if (_user_intention_xy == direction_change) {
-				VelocitySetpointPrevious[0] = Velocity[0];
-				VelocitySetpointPrevious[1] = Velocity[1];
-			}
+				/* Update manual direction change hysteresis */
+				ManualDirectionChangeHysteresis.set_state_and_update(!StickVelAligned, PX4LIB_GetPX4TimeUs());
 
-			break;
+				/* Exit direction change if one of the condition is met */
+				if (Intention == BRAKE)
+				{
+					UserIntentionXY = Intention;
+				}
+				else if (StickVelAligned)
+				{
+					UserIntentionXY = ACCELERATION;
+				}
+				else if (ManualDirectionChangeHysteresis.get_state())
+				{
+					/* TODO: find conditions which are always continuous
+					 * only if stick input is large*/
+					if (StickXy.Length() > 0.6f)
+					{
+						AccelerationStateDependentXY = ConfigTblPtr->ACC_HOR_MAX;
+					}
+				}
+
+				break;
 		}
 
-	case deceleration: {
-			_user_intention_xy = intention;
+		case ACCELERATION:
+		{
+				UserIntentionXY = Intention;
 
-			if (_user_intention_xy == direction_change) {
-				VelocitySetpointPrevious[0] = Velocity[0];
-				VelocitySetpointPrevious[1] = Velocity[1];
-			}
+				if (UserIntentionXY == DIRECTION_CHANGE)
+				{
+					VelocitySetpointPrevious[0] = Velocity[0];
+					VelocitySetpointPrevious[1] = Velocity[1];
+				}
 
-			break;
+				break;
+		}
+
+		case DECELERATION:
+		{
+				UserIntentionXY = Intention;
+
+				if (UserIntentionXY == DIRECTION_CHANGE)
+				{
+					VelocitySetpointPrevious[0] = Velocity[0];
+					VelocitySetpointPrevious[1] = Velocity[1];
+				}
+
+				break;
 		}
 	}
 
-	/*
-	 * apply acceleration based on state
-	*/
-	switch (_user_intention_xy) {
-	case brake: {
+	/* Apply acceleration based on state */
+	switch (UserIntentionXY)
+	{
+		case BRAKE:
+		{
 
-			/* limit jerk when braking to zero */
-			float jerk = (ConfigTblPtr->ACC_HOR_MAX - _acceleration_state_dependent_xy) / dt;
+				/* Limit jerk when braking to zero */
+				float jerk = (ConfigTblPtr->ACC_HOR_MAX - AccelerationStateDependentXY) / Dt;
 
-			if (jerk > _manual_jerk_limit_xy) {
-				_acceleration_state_dependent_xy = _manual_jerk_limit_xy * dt + _acceleration_state_dependent_xy;
+				if (jerk > ManualJerkLimitXY)
+				{
+					AccelerationStateDependentXY = ManualJerkLimitXY * Dt + AccelerationStateDependentXY;
+				}
+				else
+				{
+					AccelerationStateDependentXY = ConfigTblPtr->ACC_HOR_MAX;
+				}
 
-			} else {
-				_acceleration_state_dependent_xy = ConfigTblPtr->ACC_HOR_MAX;
-			}
-
-			break;
+				break;
 		}
 
-	case direction_change: {
+		case DIRECTION_CHANGE:
+		{
 
-			/* limit acceleration linearly on stick input*/
-			_acceleration_state_dependent_xy = (ConfigTblPtr->MPC_ACC_HOR - ConfigTblPtr->MPC_DEC_HOR_SLOW) * stick_xy.Length() +
-							   ConfigTblPtr->MPC_DEC_HOR_SLOW;
-			break;
+				/* Limit acceleration linearly on stick input*/
+				AccelerationStateDependentXY = (ConfigTblPtr->MPC_ACC_HOR - ConfigTblPtr->MPC_DEC_HOR_SLOW) * StickXy.Length() +
+								   ConfigTblPtr->MPC_DEC_HOR_SLOW;
+				break;
 		}
 
-	case acceleration: {
-			/* limit acceleration linearly on stick input*/
-			float acc_limit  = (ConfigTblPtr->MPC_ACC_HOR - ConfigTblPtr->MPC_DEC_HOR_SLOW) * stick_xy.Length()
-					   + ConfigTblPtr->MPC_DEC_HOR_SLOW;
+		case ACCELERATION:
+		{
+				/* Limit acceleration linearly on stick input*/
+				float acc_limit  = (ConfigTblPtr->MPC_ACC_HOR - ConfigTblPtr->MPC_DEC_HOR_SLOW) * StickXy.Length()
+						   + ConfigTblPtr->MPC_DEC_HOR_SLOW;
 
-			if (_acceleration_state_dependent_xy > acc_limit) {
-				acc_limit = _acceleration_state_dependent_xy;
-			}
+				if (AccelerationStateDependentXY > acc_limit)
+				{
+					acc_limit = AccelerationStateDependentXY;
+				}
 
-			_acceleration_state_dependent_xy = acc_limit;
-			break;
+				AccelerationStateDependentXY = acc_limit;
+				break;
 		}
 
-	case deceleration: {
-			_acceleration_state_dependent_xy = ConfigTblPtr->MPC_DEC_HOR_SLOW;
-			break;
+		case DECELERATION:
+		{
+				AccelerationStateDependentXY = ConfigTblPtr->MPC_DEC_HOR_SLOW;
+				break;
 		}
 
-	default :
-		//warn_rate_limited("User intention not recognized"); TODO
-		_acceleration_state_dependent_xy = ConfigTblPtr->ACC_HOR_MAX;
+		default :
+			//warn_rate_limited("User intention not recognized"); TODO
+			AccelerationStateDependentXY = ConfigTblPtr->ACC_HOR_MAX;
+		}
 
-	}
-
-	/* update previous stick input */
-	_stick_input_xy_prev = math::Vector2F(_filter_manual_pitch.apply(stick_xy[0]),
-						_filter_manual_roll.apply(stick_xy[1]));
+	/* Update previous stick input */
+	StickInputXyPrev = math::Vector2F(_filter_manual_pitch.apply(StickXy[0]),
+						_filter_manual_roll.apply(StickXy[1]));
 
 
-	if (_stick_input_xy_prev.Length() > 1.0f) {
-		_stick_input_xy_prev = _stick_input_xy_prev.Normalized();
+	if (StickInputXyPrev.Length() > 1.0f)
+	{
+		StickInputXyPrev = StickInputXyPrev.Normalized();
 	}
 }
 

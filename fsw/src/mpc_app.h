@@ -66,11 +66,11 @@ extern "C" {
  ** Local Defines
  *************************************************************************/
 enum manual_stick_input {
-	brake = 0,
-	direction_change = 1,
-	acceleration = 2,
-	deceleration = 3,
-	none = 4
+	BRAKE = 0,
+	DIRECTION_CHANGE = 1,
+	ACCELERATION = 2,
+	DECELERATION = 3,
+	NONE = 4
 };
 
 
@@ -197,17 +197,17 @@ public:
 
 	// NEW
 	boolean RefAltIsGlobal; /** true when the reference altitude is defined in a global reference frame */
-	manual_stick_input _user_intention_xy; /**< defines what the user intends to do derived from the stick input */
-	manual_stick_input _user_intention_z; /**< defines what the user intends to do derived from the stick input in z direciton */
-	math::Vector2F _stick_input_xy_prev; /**< for manual controlled mode to detect direction change */
+	manual_stick_input UserIntentionXY; /**< defines what the user intends to do derived from the stick input */
+	manual_stick_input UserIntentionZ; /**< defines what the user intends to do derived from the stick input in z direciton */
+	math::Vector2F StickInputXyPrev; /**< for manual controlled mode to detect direction change */
 	float _vel_max_xy;  /**< equal to vel_max except in auto mode when close to target */
-	float _acceleration_state_dependent_xy; /**< acceleration limit applied in manual mode */
-	float _acceleration_state_dependent_z; /**< acceleration limit applied in manual mode in z */
-	float _manual_jerk_limit_xy; /**< jerk limit in manual mode dependent on stick input */
-	float _manual_jerk_limit_z; /**< jerk limit in manual mode in z */
+	float AccelerationStateDependentXY; /**< acceleration limit applied in manual mode */
+	float AccelerationStateDependentZ; /**< acceleration limit applied in manual mode in z */
+	float ManualJerkLimitXY; /**< jerk limit in manual mode dependent on stick input */
+	float ManualJerkLimitZ; /**< jerk limit in manual mode in z */
 	float _z_derivative; /**< velocity in z that agrees with position rate */
 	static constexpr uint64 DIRECTION_CHANGE_TRIGGER_TIME_US = 100000;
-	systemlib::Hysteresis _manual_direction_change_hysteresis;
+	systemlib::Hysteresis ManualDirectionChangeHysteresis;
 	math::LowPassFilter2p _filter_manual_pitch;
 	math::LowPassFilter2p _filter_manual_roll;
 	bool _triplet_lat_lon_finite;
@@ -503,8 +503,7 @@ public:
 	void ApplyVelocitySetpointSlewRate(float dt);
 
 	// NEW
-	float GetVelClose(const math::Vector2F &unit_prev_to_current,
-			const math::Vector2F &unit_current_to_next);
+	float GetVelClose(const math::Vector2F &UnitPrevToCurrent, const math::Vector2F &UnitCurrentToNext);
 	void SetManualAccelerationZ(float &max_acceleration, const float stick_z, const float dt);
 	void SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt);
 	bool ManualWantsTakeoff(void);
