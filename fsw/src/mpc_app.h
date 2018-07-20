@@ -200,7 +200,7 @@ public:
 	manual_stick_input UserIntentionXY; /**< defines what the user intends to do derived from the stick input */
 	manual_stick_input UserIntentionZ; /**< defines what the user intends to do derived from the stick input in z direciton */
 	math::Vector2F StickInputXyPrev; /**< for manual controlled mode to detect direction change */
-	float _vel_max_xy;  /**< equal to vel_max except in auto mode when close to target */
+	float m_VelMaxXy;  /**< equal to vel_max except in auto mode when close to target */
 	float AccelerationStateDependentXY; /**< acceleration limit applied in manual mode */
 	float AccelerationStateDependentZ; /**< acceleration limit applied in manual mode in z */
 	float ManualJerkLimitXY; /**< jerk limit in manual mode dependent on stick input */
@@ -210,7 +210,7 @@ public:
 	systemlib::Hysteresis ManualDirectionChangeHysteresis;
 	math::LowPassFilter2p _filter_manual_pitch;
 	math::LowPassFilter2p _filter_manual_roll;
-	bool _triplet_lat_lon_finite;
+	bool TripletLatLonFinite;
 	math::Vector3F PreviousPositionSetpoint;
 	float _man_yaw_offset; /**< current yaw offset in manual mode */
 

@@ -1693,7 +1693,7 @@ MulticopterPositionControl::vel_sp_slewrate(float dt) // NEW DONE
 
 bool
 MulticopterPositionControl::cross_sphere_line(const math::Vector<3> &sphere_c, const float sphere_r,
-		const math::Vector<3> &line_a, const math::Vector<3> &line_b, math::Vector<3> &res) // DONE
+		const math::Vector<3> &line_a, const math::Vector<3> &line_b, math::Vector<3> &res) // NEW DONE
 {
 	/* project center of sphere on line */
 	/* normalized AB */
@@ -1741,7 +1741,7 @@ MulticopterPositionControl::cross_sphere_line(const math::Vector<3> &sphere_c, c
 	}
 }
 
-void MulticopterPositionControl::control_auto(float dt) // DONE
+void MulticopterPositionControl::control_auto(float dt) // NEW DONE
 {
 	/* reset position setpoint on AUTO mode activation or if we are not in MC mode */
 	if (!_mode_auto || !_vehicle_status.is_rotary_wing) {
@@ -2312,7 +2312,7 @@ void MulticopterPositionControl::control_auto(float dt) // DONE
 }
 
 void
-MulticopterPositionControl::update_velocity_derivative() // DONE
+MulticopterPositionControl::update_velocity_derivative() // NEW DONE
 {
 	/* Update velocity derivative,
 	 * independent of the current flight mode
@@ -2373,7 +2373,7 @@ MulticopterPositionControl::update_velocity_derivative() // DONE
 }
 
 void
-MulticopterPositionControl::do_control(float dt) // DONE
+MulticopterPositionControl::do_control(float dt) // NEW DONE
 {
 	/* by default, run position/altitude controller. the control_* functions
 	 * can disable this and run velocity controllers directly in this cycle */
@@ -2405,7 +2405,7 @@ MulticopterPositionControl::do_control(float dt) // DONE
 }
 
 void
-MulticopterPositionControl::control_position(float dt) // DONE
+MulticopterPositionControl::control_position(float dt) // NEW DONE
 {
 	calculate_velocity_setpoint(dt);
 
@@ -2419,7 +2419,7 @@ MulticopterPositionControl::control_position(float dt) // DONE
 }
 
 void
-MulticopterPositionControl::calculate_velocity_setpoint(float dt)
+MulticopterPositionControl::calculate_velocity_setpoint(float dt) //NEW DONE
 {
 	/* run position & altitude controllers, if enabled (otherwise use already computed velocity setpoints) */
 	if (_run_pos_control) {
@@ -2519,7 +2519,7 @@ MulticopterPositionControl::calculate_velocity_setpoint(float dt)
 }
 
 void
-MulticopterPositionControl::calculate_thrust_setpoint(float dt) // DONE
+MulticopterPositionControl::calculate_thrust_setpoint(float dt) // NEW DONE
 {
 	/* reset integrals if needed */
 	if (_control_mode.flag_control_climb_rate_enabled) {
@@ -2820,7 +2820,7 @@ MulticopterPositionControl::calculate_thrust_setpoint(float dt) // DONE
 }
 
 void
-MulticopterPositionControl::generate_attitude_setpoint(float dt)
+MulticopterPositionControl::generate_attitude_setpoint(float dt) // NEW DONE
 {
 	// yaw setpoint is integrated over time, but we don't want to integrate the offset's
 	_att_sp.yaw_body -= _man_yaw_offset;
@@ -2978,7 +2978,7 @@ MulticopterPositionControl::generate_attitude_setpoint(float dt)
 	_att_sp.timestamp = hrt_absolute_time();
 }
 
-bool MulticopterPositionControl::manual_wants_takeoff()
+bool MulticopterPositionControl::manual_wants_takeoff() // NEW DONE
 {
 	const bool has_manual_control_present = _control_mode.flag_control_manual_enabled && _manual.timestamp > 0;
 
@@ -2987,7 +2987,7 @@ bool MulticopterPositionControl::manual_wants_takeoff()
 }
 
 void
-MulticopterPositionControl::task_main()
+MulticopterPositionControl::task_main() // NEW DONE
 {
 	/*
 	 * do subscriptions
