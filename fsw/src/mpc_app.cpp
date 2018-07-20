@@ -1304,9 +1304,6 @@ void MPC::ControlManual(float dt) // NEW DONE
 	float MaxAccZ = 0.0f;
 	SetManualAccelerationZ(MaxAccZ, StickZ, dt);
 
-	//TODO Remove
-	OS_printf("This shouldn't be zero %f\n",MaxAccZ);
-
 	/* Prepare cruise speed (m/s) vector to scale the velocity setpoint */
 	float VelMag = (ConfigTblPtr->MPC_VEL_MANUAL < VelMaxXY) ? ConfigTblPtr->MPC_VEL_MANUAL : VelMaxXY;
 	math::Vector3F VelCruiseScale(VelMag, VelMag, (ManVelSp[2] > 0.0f) ? ConfigTblPtr->Z_VEL_MAX_DN : ConfigTblPtr->Z_VEL_MAX_UP);
