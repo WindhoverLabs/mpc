@@ -65,7 +65,7 @@ extern "C" {
 /************************************************************************
  ** Local Defines
  *************************************************************************/
-enum manual_stick_input {
+enum ManualStickInput {
 	BRAKE = 0,
 	DIRECTION_CHANGE = 1,
 	ACCELERATION = 2,
@@ -107,112 +107,99 @@ public:
     MPC_ConfigTbl_t* ConfigTblPtr;
 
     /* Output Messages */
+
     /** \brief Housekeeping Telemetry for downlink */
     MPC_HkTlm_t HkTlm;
+
     /** \brief Output Data published at the end of cycle */
-    PX4_VehicleAttitudeSetpointMsg_t VehicleAttitudeSetpointMsg;
-    //PX4_VehicleLocalVelocitySetpointMsg_t VehicleLocalVelocitySetpointMsg;
-    PX4_VehicleLocalPositionSetpointMsg_t VehicleLocalPositionSetpointMsg;
-    PX4_VehicleGlobalVelocitySetpointMsg_t VehicleGlobalVelocitySetpointMsg;
+    PX4_VehicleAttitudeSetpointMsg_t m_VehicleAttitudeSetpointMsg;
+    PX4_VehicleLocalPositionSetpointMsg_t m_VehicleLocalPositionSetpointMsg;
+    PX4_VehicleGlobalVelocitySetpointMsg_t m_VehicleGlobalVelocitySetpointMsg;
 
     /* Input Messages */
-    PX4_ControlStateMsg_t ControlStateMsg;
-    PX4_ManualControlSetpointMsg_t ManualControlSetpointMsg;
-    PX4_HomePositionMsg_t HomePositionMsg;
-    PX4_VehicleControlModeMsg_t VehicleControlModeMsg;
-    PX4_PositionSetpointTripletMsg_t PositionSetpointTripletMsg;
-    PX4_VehicleStatusMsg_t VehicleStatusMsg;
-    PX4_VehicleLandDetectedMsg_t VehicleLandDetectedMsg;
-    PX4_VehicleLocalPositionMsg_t VehicleLocalPositionMsg;
+    PX4_ControlStateMsg_t m_ControlStateMsg;
+    PX4_ManualControlSetpointMsg_t m_ManualControlSetpointMsg;
+    PX4_HomePositionMsg_t m_HomePositionMsg;
+    PX4_VehicleControlModeMsg_t m_VehicleControlModeMsg;
+    PX4_PositionSetpointTripletMsg_t m_PositionSetpointTripletMsg;
+    PX4_VehicleStatusMsg_t m_VehicleStatusMsg;
+    PX4_VehicleLandDetectedMsg_t m_VehicleLandDetectedMsg;
+    PX4_VehicleLocalPositionMsg_t m_VehicleLocalPositionMsg;
 
-	math::Matrix3F3 Rotation; /**< rotation matrix from attitude quaternions */
-	float Yaw;				  /**< yaw angle (euler) */
-	float YawTakeoff;	      /**< home yaw angle present when vehicle was taking off (euler) */
-	bool  InLanding;	      /**< the vehicle is in the landing descent */
-	bool  LndReachedGround;   /**< controller assumes the vehicle has reached the ground after landing */
-	float VelZLp;
-	float AccZLp;
-	float VelMaxXY;           /**< equal to vel_max except in auto mode when close to target */
-	bool  InTakeoff;	      /**< flag for smooth velocity setpoint takeoff ramp */
-	float TakeoffVelLimit;    /**< velocity limit value which gets ramped up */
+	/* Reset counters */
+	uint8 m_ResetCounterZ;
+	uint8 m_ResetCounterXy;
+	uint8 m_HeadingResetCounter;
 
-	uint8 Z_ResetCounter;
-	uint8 XY_ResetCounter;
-	uint8 VZ_ResetCounter;
-	uint8 VXY_ResetCounter;
-	uint8 HeadingResetCounter;
+	/* Control variables used for altitude, position, and yaw hold */
+	math::Vector3F m_Position;
+	math::Vector3F m_PositionSetpoint;
+	math::Vector3F m_Velocity;
+	math::Vector3F m_VelocityPrevious;			/**< velocity on previous step */
+	math::Vector3F m_VelocitySetpoint;
+	math::Vector3F m_VelocitySetpointPrevious;
+	math::Vector3F m_VelocityErrD;		     /**< derivative of current velocity */
+	math::Vector3F m_CurrentPositionSetpoint;  /**< current setpoint of the triplets */
+	math::Vector3F m_PreviousPositionSetpoint;
+	math::Matrix3F3 m_RSetpoint;
+	math::Matrix3F3 m_Rotation; /**< rotation matrix from attitude quaternions */
+	math::Vector3F m_ThrustInt;
+	float m_DerivativeZ; /**< velocity in z that agrees with position rate */
+	float m_Yaw;				  /**< yaw angle (euler) */
+	float m_ManYawOffset; /**< current yaw offset in manual mode */
 
-	math::Vector3F ThrustInt;
+	/* State variables */
+	bool m_ModeAuto;
+	bool m_PositionHoldEngaged;
+	bool m_AltitudeHoldEngaged;
+	bool m_RunPosControl;
+	bool m_RunAltControl;
+	bool m_ResetPositionSetpoint;
+	bool m_ResetAltitudeSetpoint;
+	bool m_DoResetAltPos;
+	bool m_WasArmed;
+	bool m_WasLanded;
+	bool m_ResetIntZ;
+	bool m_ResetIntXY;
+	bool m_ResetIntZManual;
+	bool m_ResetYawSetpoint;
+	bool m_HoldOffboardXY;
+	bool m_HoldOffboardZ;
+	bool m_InTakeoff;	      /**< flag for smooth velocity setpoint takeoff ramp */
+	bool m_TripletLatLonFinite;
 
-	math::Vector3F Position;
-	math::Vector3F PositionSetpoint;
-	math::Vector3F Velocity;
-	math::Vector3F VelocitySetpoint;
-	math::Vector3F VelocityPrevious;			/**< velocity on previous step */
-	math::Vector3F VelocityFF;
-	math::Vector3F VelocitySetpointPrevious;
-	math::Vector3F VelocityErrD;		     /**< derivative of current velocity */
-	math::Vector3F CurrentPositionSetpoint;  /**< current setpoint of the triplets */
+	/* Reference point */
+	uint64 m_RefTimestamp;
+	struct map_projection_reference_s m_RefPos;
+	float m_RefAlt;
+	boolean m_RefAltIsGlobal; /** true when the reference altitude is defined in a global reference frame */
+	float m_YawTakeoff;	      /**< home yaw angle present when vehicle was taking off (euler) */
 
-	math::Matrix3F3 RSetpoint;
+	/* Velocity controller PIDs */
+	math::Vector3F m_PosP;
+	math::Vector3F m_VelP;
+	math::Vector3F m_VelI;
+	math::Vector3F m_VelD;
+	Derivative m_VelXDeriv;
+	Derivative m_VelYDeriv;
+	Derivative m_VelZDeriv;
 
-	bool ResetPositionSetpoint;
-	bool ResetAltitudeSetpoint;
-	bool DoResetAltPos;
-	bool ModeAuto;
-	bool PositionHoldEngaged;
-	bool AltitudeHoldEngaged;
-	bool RunPosControl;
-	bool RunAltControl;
+	/* Limit variables */
+	float m_AccelerationStateLimitXY; /**< acceleration limit applied in manual mode */
+	float m_AccelerationStateLimitZ; /**< acceleration limit applied in manual mode in z */
+	float m_ManualJerkLimitXY; /**< jerk limit in manual mode dependent on stick input */
+	float m_ManualJerkLimitZ; /**< jerk limit in manual mode in z */
+	float m_VelMaxXy;           /**< equal to vel_max except in auto mode when close to target */
+	float m_TakeoffVelLimit;    /**< velocity limit value which gets ramped up */
 
-	bool ResetIntZ;
-	bool ResetIntXY;
-	bool ResetIntZManual;
-	bool ResetYawSetpoint;
+	/* Stick input variables */
+	math::LowPassFilter2p m_FilterManualPitch;
+	math::LowPassFilter2p m_FilterManualRoll;
+	math::Vector2F m_StickInputXyPrev; /**< for manual controlled mode to detect direction change */
+	ManualStickInput m_UserIntentionXY; /**< defines what the user intends to do derived from the stick input */
+	ManualStickInput m_UserIntentionZ; /**< defines what the user intends to do derived from the stick input in z direciton */
+	systemlib::Hysteresis m_ManualDirectionChangeHysteresis;
 
-	bool HoldOffboardXY;
-	bool HoldOffboardZ;
-	bool LimitVelXY;
-
-	bool GearStateInitialized;
-
-	uint64 RefTimestamp;
-	struct map_projection_reference_s RefPos;
-	float RefAlt;
-
-	Derivative VelXDeriv;
-	Derivative VelYDeriv;
-	Derivative VelZDeriv;
-
-	math::Vector3F PosP;
-	math::Vector3F VelP;
-	math::Vector3F VelI;
-	math::Vector3F VelD;
-
-	float VelocityMaxXY;  /**< Equal to vel_max except in auto mode when close to target. */
-
-
-	bool WasArmed;
-	bool WasLanded;
-
-	// NEW
-	boolean RefAltIsGlobal; /** true when the reference altitude is defined in a global reference frame */
-	manual_stick_input UserIntentionXY; /**< defines what the user intends to do derived from the stick input */
-	manual_stick_input UserIntentionZ; /**< defines what the user intends to do derived from the stick input in z direciton */
-	math::Vector2F StickInputXyPrev; /**< for manual controlled mode to detect direction change */
-	float m_VelMaxXy;  /**< equal to vel_max except in auto mode when close to target */
-	float AccelerationStateDependentXY; /**< acceleration limit applied in manual mode */
-	float AccelerationStateDependentZ; /**< acceleration limit applied in manual mode in z */
-	float ManualJerkLimitXY; /**< jerk limit in manual mode dependent on stick input */
-	float ManualJerkLimitZ; /**< jerk limit in manual mode in z */
-	float _z_derivative; /**< velocity in z that agrees with position rate */
-	static constexpr uint64 DIRECTION_CHANGE_TRIGGER_TIME_US = 100000;
-	systemlib::Hysteresis ManualDirectionChangeHysteresis;
-	math::LowPassFilter2p _filter_manual_pitch;
-	math::LowPassFilter2p _filter_manual_roll;
-	bool TripletLatLonFinite;
-	math::Vector3F PreviousPositionSetpoint;
-	float _man_yaw_offset; /**< current yaw offset in manual mode */
 
     /************************************************************************/
     /** \brief Multicopter Position Control (MPC) application entry point
@@ -230,7 +217,7 @@ public:
     void AppMain(void);
 
     /************************************************************************/
-    /** \brief Initialize the Multicopter Position Control (MPC) application
+    /** \brief Initialize the Multicopter m_Position Control (MPC) application
      **
      **  \par Description
      **       Multicopter Position Control application initialization routine. This
