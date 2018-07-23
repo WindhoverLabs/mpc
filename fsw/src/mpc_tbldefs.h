@@ -520,7 +520,7 @@ typedef struct
      * @decimal 2
      * @group Multicopter Position Control
      */
-    uint32 XY_MAN_EXPO;
+    float XY_MAN_EXPO;
 
     /**
      * Manual control stick vertical exponential curve

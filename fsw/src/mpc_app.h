@@ -114,7 +114,6 @@ public:
     /** \brief Output Data published at the end of cycle */
     PX4_VehicleAttitudeSetpointMsg_t m_VehicleAttitudeSetpointMsg;
     PX4_VehicleLocalPositionSetpointMsg_t m_VehicleLocalPositionSetpointMsg;
-    PX4_VehicleGlobalVelocitySetpointMsg_t m_VehicleGlobalVelocitySetpointMsg;
 
     /* Input Messages */
     PX4_ControlStateMsg_t m_ControlStateMsg;
@@ -357,6 +356,7 @@ public:
      **
      *************************************************************************/
     void ReportHousekeeping(void);
+
     /************************************************************************/
     /** \brief Sends the VehicleAttitudeSetpointMsg message.
      **
@@ -370,31 +370,18 @@ public:
      *************************************************************************/
     void SendVehicleAttitudeSetpointMsg(void);
 
-//    /************************************************************************/
-//    /** \brief Sends the VehicleLocalVelocitySetpointMsg message.
-//     **
-//     **  \par Description
-//     **       This function publishes the VehicleLocalVelocitySetpointMsg message containing
-//     **       <TODO>
-//     **
-//     **  \par Assumptions, External Events, and Notes:
-//     **       None
-//     **
-//     *************************************************************************/
-//    void SendVehicleLocalVelocitySetpointMsg(void);
-
     /************************************************************************/
-    /** \brief Sends the VehicleGlobalVelocitySetpointMsg message.
+    /** \brief Sends the VehicleLocalPosition message.
      **
      **  \par Description
-     **       This function publishes the VehicleGlobalVelocitySetpointMsg message containing
+     **       This function publishes the VehicleLocalPosition message containing
      **       <TODO>
      **
      **  \par Assumptions, External Events, and Notes:
      **       None
      **
      *************************************************************************/
-    void SendVehicleGlobalVelocitySetpointMsg(void);
+    void SendVehicleLocalPositionSetpointMsg(void);
 
     /************************************************************************/
     /** \brief Verify Command Length
@@ -416,10 +403,6 @@ public:
      *************************************************************************/
     boolean VerifyCmdLength(CFE_SB_Msg_t* MsgPtr, uint16 usExpectedLen);
 
-    void SendVehicleLocalPositionSetpointMsg(void);
-
-
-public:
     /************************************************************************/
     /** \brief Initialize the MPC configuration tables.
     **
@@ -457,49 +440,395 @@ public:
     *************************************************************************/
     int32  AcquireConfigPointers(void);
 
-public:
+    /************************************************************************/
+    /** \brief Process Control State Message
+    **
+    **  \par Description
+    **       This function calculates yaw and Euler angles from the current
+    **       control state message.
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void ProcessControlStateMsg(void);
+
+    /************************************************************************/
+    /** \brief Process Vehicle Local Position Message
+    **
+    **  \par Description
+    **       This function verifies that the TODO
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void ProcessVehicleLocalPositionMsg(void);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void ProcessPositionSetpointTripletMsg(void);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void Execute(void);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void UpdateRef(void);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void UpdateVelocityDerivative(float dt);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void DoControl(float dt);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void GenerateAttitudeSetpoint(float dt);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void ControlManual(float dt);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void ControlNonManual(float dt);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     float ThrottleCurve(float ctl, float ctr);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void ResetAltSetpoint(void);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void ResetPosSetpoint(void);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void ControlPosition(float dt);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void ControlOffboard(float dt);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
     void ControlAuto(float dt);
-	void CalculateVelocitySetpoint(float dt);
-	void CalculateThrustSetpoint(float dt);
-	float GetCruisingSpeedXY(void);
-	bool CrossSphereLine(const math::Vector3F &sphere_c, const float sphere_r,
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
+    void CalculateVelocitySetpoint(float dt);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
+    void CalculateThrustSetpoint(float dt);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
+    float GetCruisingSpeedXY(void);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
+    bool CrossSphereLine(const math::Vector3F &sphere_c, const float sphere_r,
 			const math::Vector3F &line_a, const math::Vector3F &line_b, math::Vector3F &res);
-	void UpdateParamsFromTable(void);
-	void LimitAltitude(void);
-	void SlowLandGradualVelocityLimit(void);
-	bool InAutoTakeoff(void);
-	/*
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
+    void UpdateParamsFromTable(void);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
+    void LimitAltitude(void);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
+    void SlowLandGradualVelocityLimit(void);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
+    bool InAutoTakeoff(void);
+
+    /*
 	 * Limit vel horizontally when close to target
 	 */
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
 	void LimitVelXYGradually(void);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
 	void ApplyVelocitySetpointSlewRate(float dt);
 
-	// NEW
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
 	float GetVelClose(const math::Vector2F &UnitPrevToCurrent, const math::Vector2F &UnitCurrentToNext);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
 	void SetManualAccelerationZ(float &max_acceleration, const float stick_z, const float dt);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
 	void SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
 	bool ManualWantsTakeoff(void);
 
-
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
 	void UpdateXyPids(MPC_SetPidCmd_t* PidMsg);
+
+    /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
 	void UpdateZPids(MPC_SetPidCmd_t* PidMsg);
 
-public:
     /************************************************************************/
     /** \brief Validate MPC configuration table
     **

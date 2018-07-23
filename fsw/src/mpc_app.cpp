@@ -240,9 +240,6 @@ void MPC::InitData()
 	CFE_SB_InitMsg(&m_VehicleLocalPositionSetpointMsg,
 		PX4_VEHICLE_LOCAL_POSITION_SETPOINT_MID, sizeof(PX4_VehicleLocalPositionSetpointMsg_t), TRUE);
 
-	CFE_SB_InitMsg(&m_VehicleGlobalVelocitySetpointMsg,
-		PX4_VEHICLE_GLOBAL_VELOCITY_SETPOINT_MID, sizeof(PX4_VehicleGlobalVelocitySetpointMsg_t), TRUE);
-
 	/* Clear input messages */
 	memset(&m_ControlStateMsg, 0, sizeof(m_ControlStateMsg));
 	memset(&m_ManualControlSetpointMsg, 0, sizeof(m_ManualControlSetpointMsg));
@@ -613,12 +610,6 @@ void MPC::SendVehicleLocalPositionSetpointMsg()
 {
     CFE_SB_TimeStampMsg((CFE_SB_Msg_t*)&m_VehicleLocalPositionSetpointMsg);
     CFE_SB_SendMsg((CFE_SB_Msg_t*)&m_VehicleLocalPositionSetpointMsg);
-}
-
-void MPC::SendVehicleGlobalVelocitySetpointMsg()
-{
-    CFE_SB_TimeStampMsg((CFE_SB_Msg_t*)&m_VehicleGlobalVelocitySetpointMsg);
-    CFE_SB_SendMsg((CFE_SB_Msg_t*)&m_VehicleGlobalVelocitySetpointMsg);
 }
 
 
