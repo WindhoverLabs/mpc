@@ -148,24 +148,24 @@ public:
 	float m_ManYawOffset; /**< current yaw offset in manual mode */
 
 	/* State variables */
-	bool m_ModeAuto;
-	bool m_PositionHoldEngaged;
-	bool m_AltitudeHoldEngaged;
-	bool m_RunPosControl;
-	bool m_RunAltControl;
-	bool m_ResetPositionSetpoint;
-	bool m_ResetAltitudeSetpoint;
-	bool m_DoResetAltPos;
-	bool m_WasArmed;
-	bool m_WasLanded;
-	bool m_ResetIntZ;
-	bool m_ResetIntXY;
-	bool m_ResetIntZManual;
-	bool m_ResetYawSetpoint;
-	bool m_HoldOffboardXY;
-	bool m_HoldOffboardZ;
-	bool m_InTakeoff;	      /**< flag for smooth velocity setpoint takeoff ramp */
-	bool m_TripletLatLonFinite;
+	boolean m_ModeAuto;
+	boolean m_PositionHoldEngaged;
+	boolean m_AltitudeHoldEngaged;
+	boolean m_RunPosControl;
+	boolean m_RunAltControl;
+	boolean m_ResetPositionSetpoint;
+	boolean m_ResetAltitudeSetpoint;
+	boolean m_DoResetAltPos;
+	boolean m_WasArmed;
+	boolean m_WasLanded;
+	boolean m_ResetIntZ;
+	boolean m_ResetIntXY;
+	boolean m_ResetIntZManual;
+	boolean m_ResetYawSetpoint;
+	boolean m_HoldOffboardXY;
+	boolean m_HoldOffboardZ;
+	boolean m_InTakeoff;	      /**< flag for smooth velocity setpoint takeoff ramp */
+	boolean m_TripletLatLonFinite;
 
 	/* Reference point */
 	uint64 m_RefTimestamp;
@@ -679,7 +679,7 @@ public:
     **       None
     **
     *************************************************************************/
-    bool CrossSphereLine(const math::Vector3F &sphere_c, const float sphere_r,
+    boolean CrossSphereLine(const math::Vector3F &sphere_c, const float sphere_r,
 			const math::Vector3F &line_a, const math::Vector3F &line_b, math::Vector3F &res);
 
     /************************************************************************/
@@ -728,7 +728,7 @@ public:
     **       None
     **
     *************************************************************************/
-    bool InAutoTakeoff(void);
+    boolean InAutoTakeoff(void);
 
     /*
 	 * Limit vel horizontally when close to target
@@ -803,7 +803,7 @@ public:
     **       None
     **
     *************************************************************************/
-	bool ManualWantsTakeoff(void);
+	boolean ManualWantsTakeoff(void);
 
     /************************************************************************/
     /** \brief
