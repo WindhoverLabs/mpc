@@ -111,6 +111,9 @@ public:
     /** \brief Housekeeping Telemetry for downlink */
     MPC_HkTlm_t HkTlm;
 
+    /** \brief Diagnositc Telemetry for downlink */
+    MPC_DiagPacket_t DiagTlm;
+
     /** \brief Output Data published at the end of cycle */
     PX4_VehicleAttitudeSetpointMsg_t m_VehicleAttitudeSetpointMsg;
     PX4_VehicleLocalPositionSetpointMsg_t m_VehicleLocalPositionSetpointMsg;
@@ -356,6 +359,18 @@ public:
      **
      *************************************************************************/
     void ReportHousekeeping(void);
+
+    /************************************************************************/
+    /** \brief Sends MPC Diagnostic message
+     **
+     **  \par Description
+     **       This function sends the diagnostic message
+     **
+     **  \par Assumptions, External Events, and Notes:
+     **       None
+     **
+     *************************************************************************/
+    void ReportDiagnostic(void);
 
     /************************************************************************/
     /** \brief Sends the VehicleAttitudeSetpointMsg message.

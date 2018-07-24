@@ -181,7 +181,35 @@ extern "C" {
 */
 #define MPC_SET_Z_PID_CC            (3)
 
-
+/** \mpccmd
+**
+**  \par Description
+**
+**
+**  \par Command Structure
+**       #MPC_NoArgCmd_t
+**
+**  \par Command Verification
+**       Successful execution of this command may be verified with
+**       the following telemetry:
+**       - \b \c \MPC_CMDACPTCNT - command counter will increment
+**       - The #TODO informational event message will be
+**         generated when the command is received
+**
+**  \par Error Conditions
+**       This command may fail for the following reason(s):
+**       - Command packet length not as expected
+**
+**  \par Evidence of failure may be found in the following telemetry:
+**       - \b \c \MPC_CMDRJCTCNT - command error counter will increment
+**       - Error specific event message #TODO
+**
+**  \par Criticality
+**       TODO
+**
+**  \sa #MPC_SEND_DIAG_CC
+*/
+#define MPC_SEND_DIAG_CC            (4)
 
 /************************************************************************
 ** Local Structure Declarations
@@ -311,7 +339,7 @@ typedef struct
 	float            XY_CRUISE;
 
     /** \brief  */
-	float            VEL_MAN_MAX;
+	float            MPC_VEL_MANUAL;
 
     /** \brief  */
 	float            XY_VEL_MAX;

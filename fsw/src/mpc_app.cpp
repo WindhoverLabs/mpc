@@ -232,6 +232,10 @@ void MPC::InitData()
 	CFE_SB_InitMsg(&HkTlm,
 		MPC_HK_TLM_MID, sizeof(HkTlm), TRUE);
 
+	/* Init diagnostic message. */
+	CFE_SB_InitMsg(&DiagTlm,
+		MPC_DIAG_TLM_MID, sizeof(DiagTlm), TRUE);
+
 	/* Init output messages */
 	CFE_SB_InitMsg(&m_VehicleAttitudeSetpointMsg,
 		PX4_VEHICLE_ATTITUDE_SETPOINT_MID, sizeof(PX4_VehicleAttitudeSetpointMsg_t), TRUE);
@@ -574,6 +578,12 @@ void MPC::ProcessAppCmds(CFE_SB_Msg_t* MsgPtr)
 						m_VelD[2]);
 				break;
 
+            case MPC_SEND_DIAG_CC:
+            	ReportDiagnostic();
+            	HkTlm.usCmdCnt++;
+            	(void) CFE_EVS_SendEvent(MPC_SEND_DIAG_EID, CFE_EVS_DEBUG, "Sending Diag packet.");
+            	break;
+
             default:
                 HkTlm.usCmdErrCnt++;
                 (void) CFE_EVS_SendEvent(MPC_CC_ERR_EID, CFE_EVS_ERROR,
@@ -610,6 +620,39 @@ void MPC::ReportHousekeeping()
 
     CFE_SB_TimeStampMsg((CFE_SB_Msg_t*)&HkTlm);
     CFE_SB_SendMsg((CFE_SB_Msg_t*)&HkTlm);
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*                                                                 */
+/* Send MPC Diagnostic Data                                        */
+/*                                                                 */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+void MPC::ReportDiagnostic()
+{
+	DiagTlm.Z_P = ConfigTblPtr->Z_P;
+	DiagTlm.Z_VEL_P = ConfigTblPtr->Z_VEL_P;
+	DiagTlm.Z_VEL_I = ConfigTblPtr->Z_VEL_I;
+	DiagTlm.Z_VEL_D = ConfigTblPtr->Z_VEL_D;
+	DiagTlm.Z_VEL_MAX_UP = ConfigTblPtr->Z_VEL_MAX_UP;
+	DiagTlm.Z_VEL_MAX_DN = ConfigTblPtr->Z_VEL_MAX_DN;
+	DiagTlm.Z_FF = ConfigTblPtr->Z_FF;
+	DiagTlm.XY_P = ConfigTblPtr->XY_P;
+	DiagTlm.XY_VEL_P = ConfigTblPtr->XY_VEL_P;
+	DiagTlm.XY_VEL_I = ConfigTblPtr->XY_VEL_I;
+	DiagTlm.XY_VEL_D = ConfigTblPtr->XY_VEL_D;
+	DiagTlm.XY_CRUISE = ConfigTblPtr->XY_CRUISE;
+	DiagTlm.MPC_VEL_MANUAL = ConfigTblPtr->MPC_VEL_MANUAL;
+	DiagTlm.XY_VEL_MAX = ConfigTblPtr->XY_VEL_MAX;
+	DiagTlm.XY_FF = ConfigTblPtr->XY_FF;
+	DiagTlm.TILTMAX_AIR = ConfigTblPtr->TILTMAX_AIR;
+	DiagTlm.ACC_HOR_MAX = ConfigTblPtr->ACC_HOR_MAX;
+	DiagTlm.ACC_UP_MAX = ConfigTblPtr->ACC_UP_MAX;
+	DiagTlm.ACC_DOWN_MAX = ConfigTblPtr->ACC_DOWN_MAX;
+	DiagTlm.MPC_DEC_HOR_SLOW = ConfigTblPtr->MPC_DEC_HOR_SLOW;
+
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t*)&DiagTlm);
+    CFE_SB_SendMsg((CFE_SB_Msg_t*)&DiagTlm);
 }
 
 
