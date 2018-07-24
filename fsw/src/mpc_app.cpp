@@ -590,6 +590,24 @@ void MPC::ProcessAppCmds(CFE_SB_Msg_t* MsgPtr)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 void MPC::ReportHousekeeping()
 {
+	HkTlm.AccelerationStateLimitXY = m_AccelerationStateLimitXY;
+	HkTlm.AccelerationStateLimitZ = m_AccelerationStateLimitZ;
+	HkTlm.ManualJerkLimitXY = m_ManualJerkLimitXY;
+	HkTlm.ManualJerkLimitZ = m_ManualJerkLimitZ;
+	HkTlm.TakeoffVelLimit = m_TakeoffVelLimit;
+	HkTlm.VelMaxXy = m_VelMaxXy;
+	HkTlm.YawTakeoff = m_YawTakeoff;
+	HkTlm.Yaw = m_Yaw;
+	HkTlm.ModeAuto = m_ModeAuto;
+	HkTlm.PositionHoldEngaged = m_PositionHoldEngaged;
+	HkTlm.AltitudeHoldEngaged = m_AltitudeHoldEngaged;
+	HkTlm.RunPosControl = m_RunPosControl;
+	HkTlm.RunAltControl = m_RunAltControl;
+	HkTlm.InTakeoff = m_InTakeoff;
+	HkTlm.TripletLatLonFinite = m_TripletLatLonFinite;
+	HkTlm.WasLanded = m_WasLanded;
+	HkTlm.WasArmed = m_WasArmed;
+
     CFE_SB_TimeStampMsg((CFE_SB_Msg_t*)&HkTlm);
     CFE_SB_SendMsg((CFE_SB_Msg_t*)&HkTlm);
 }

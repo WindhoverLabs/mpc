@@ -121,8 +121,67 @@ extern "C" {
 */
 #define MPC_RESET_CC                (1)
 
+/** \mpccmd
+**
+**  \par Description
+**
+**
+**  \par Command Structure
+**       #MPC_NoArgCmd_t
+**
+**  \par Command Verification
+**       Successful execution of this command may be verified with
+**       the following telemetry:
+**       - \b \c \MPC_CMDACPTCNT - command counter will increment
+**       - The #TODO informational event message will be
+**         generated when the command is received
+**
+**  \par Error Conditions
+**       This command may fail for the following reason(s):
+**       - Command packet length not as expected
+**
+**  \par Evidence of failure may be found in the following telemetry:
+**       - \b \c \MPC_CMDRJCTCNT - command error counter will increment
+**       - Error specific event message #TODO
+**
+**  \par Criticality
+**       TODO
+**
+**  \sa #MPC_NOOP_CC
+*/
 #define MPC_SET_XY_PID_CC           (2)
+
+/** \mpccmd
+**
+**  \par Description
+**
+**
+**  \par Command Structure
+**       #MPC_NoArgCmd_t
+**
+**  \par Command Verification
+**       Successful execution of this command may be verified with
+**       the following telemetry:
+**       - \b \c \MPC_CMDACPTCNT - command counter will increment
+**       - The #TODO informational event message will be
+**         generated when the command is received
+**
+**  \par Error Conditions
+**       This command may fail for the following reason(s):
+**       - Command packet length not as expected
+**
+**  \par Evidence of failure may be found in the following telemetry:
+**       - \b \c \MPC_CMDRJCTCNT - command error counter will increment
+**       - Error specific event message #TODO
+**
+**  \par Criticality
+**       TODO
+**
+**  \sa #MPC_NOOP_CC
+*/
 #define MPC_SET_Z_PID_CC            (3)
+
+
 
 /************************************************************************
 ** Local Structure Declarations
@@ -143,7 +202,7 @@ typedef struct
 */
 typedef struct
 {
-    /** \brief cFE SB Tlm Msg Hdr */
+	/** \brief cFE SB Tlm Msg Hdr */
     uint8              TlmHeader[CFE_SB_TLM_HDR_SIZE];
 
     /** \mpctlmmnemonic \MPC_CMDACPTCNT
@@ -151,21 +210,83 @@ typedef struct
     uint8              usCmdCnt;   
 
     /** \mpctlmmnemonic \MPC_CMDRJCTCNT
-        \brief Count of failed commands */
-    uint8              usCmdErrCnt; 
+		\brief Count of failed commands */
+    uint8              usCmdErrCnt;
+
+    /** \brief  */
+	float              AccelerationStateLimitXY;
+
+	/** \brief  */
+	float              AccelerationStateLimitZ;
+
+	/** \brief  */
+	float              ManualJerkLimitXY;
+
+	/** \brief  */
+	float              ManualJerkLimitZ;
+
+	/** \brief  */
+	float              TakeoffVelLimit;
+
+	/** \brief  */
+	float              VelMaxXy;
+
+	/** \brief  */
+	float              YawTakeoff;
+
+	/** \brief  */
+	float              Yaw;
+
+	/** \brief  */
+	boolean            ModeAuto;
+
+	/** \brief  */
+	boolean            PositionHoldEngaged;
+
+	/** \brief  */
+	boolean            AltitudeHoldEngaged;
+
+	/** \brief  */
+	boolean            RunPosControl;
+
+	/** \brief  */
+	boolean            RunAltControl;
+
+	/** \brief  */
+	boolean            InTakeoff;
+
+	/** \brief  */
+	boolean            TripletLatLonFinite;
+
+	/** \brief  */
+	boolean            WasLanded;
+
+	/** \brief  */
+	boolean            WasArmed;
+
 
 } MPC_HkTlm_t;
 
 /**
-**  \brief MPC pid data
+**  \brief MPC set PID cmd
 */
 typedef struct
 {
+	/** \brief cFE SB Cmd Msg Hdr */
 	uint8  ucCmdHeader[CFE_SB_CMD_HDR_SIZE];
-	float              PidGain;
-	float              PidVelP;
-	float              PidVelI;
-	float              PidVelD;
+
+	/** \brief PID Gain */
+	float  PidGain;
+
+	/** \brief PID P value */
+	float  PidVelP;
+
+	/** \brief PID I value */
+	float  PidVelI;
+
+	/** \brief PID D value */
+	float  PidVelD;
+
 } MPC_SetPidCmd_t;
 
 #ifdef __cplusplus
