@@ -1264,7 +1264,7 @@ void MPC::ControlManual(float dt)
 	SetManualAccelerationZ(MaxAccZ, StickZ, dt);
 
 	/* Prepare cruise speed (m/s) vector to scale the velocity setpoint */
-	float m_VelMaxXy = (ConfigTblPtr->MPC_VEL_MANUAL < m_VelMaxXy) ? ConfigTblPtr->MPC_VEL_MANUAL : m_VelMaxXy;
+	m_VelMaxXy = (ConfigTblPtr->MPC_VEL_MANUAL < m_VelMaxXy) ? ConfigTblPtr->MPC_VEL_MANUAL : m_VelMaxXy;
 	math::Vector3F VelCruiseScale(m_VelMaxXy, m_VelMaxXy, (ManVelSp[2] > 0.0f) ? ConfigTblPtr->Z_VEL_MAX_DN : ConfigTblPtr->Z_VEL_MAX_UP);
 
 	/* Setpoint scaled to cruise speed */
