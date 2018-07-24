@@ -2025,7 +2025,7 @@ void MPC::ControlAuto(float dt)
 					float acc_track = (FinalCruiseSpeed - VelSpAlongTrackPrev) / dt;
 
 					/* If yaw offset is large, only accelerate with 0.5m/s^2 */
-					float acc = (fabsf(YawDiff) >  math::radians(ConfigTblPtr->NAV_MIS_YAW_ERR)) ? 0.5f : ConfigTblPtr->MPC_ACC_HOR;
+					float acc = (fabsf(YawDiff) >  math::radians(ConfigTblPtr->NAV_MIS_YAW_ERR)) ? 0.5f : ConfigTblPtr->ACC_HOR_MAX;
 
 					if (acc_track > acc)
 					{
@@ -3242,7 +3242,7 @@ void MPC::SetManualAccelerationXY(math::Vector2F &StickXy, const float Dt)
 		{
 
 				/* Limit acceleration linearly on stick input*/
-				m_AccelerationStateLimitXY = (ConfigTblPtr->MPC_ACC_HOR - ConfigTblPtr->MPC_DEC_HOR_SLOW) * StickXy.Length() +
+				m_AccelerationStateLimitXY = (ConfigTblPtr->ACC_HOR_MAX - ConfigTblPtr->MPC_DEC_HOR_SLOW) * StickXy.Length() +
 								   ConfigTblPtr->MPC_DEC_HOR_SLOW;
 				break;
 		}
@@ -3250,7 +3250,7 @@ void MPC::SetManualAccelerationXY(math::Vector2F &StickXy, const float Dt)
 		case ACCELERATION:
 		{
 				/* Limit acceleration linearly on stick input*/
-				float acc_limit  = (ConfigTblPtr->MPC_ACC_HOR - ConfigTblPtr->MPC_DEC_HOR_SLOW) * StickXy.Length()
+				float acc_limit  = (ConfigTblPtr->ACC_HOR_MAX - ConfigTblPtr->MPC_DEC_HOR_SLOW) * StickXy.Length()
 						   + ConfigTblPtr->MPC_DEC_HOR_SLOW;
 
 				if (m_AccelerationStateLimitXY > acc_limit)

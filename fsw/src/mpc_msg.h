@@ -268,6 +268,76 @@ typedef struct
 } MPC_HkTlm_t;
 
 /**
+**  \brief MPC diagnostic data
+*/
+typedef struct
+{
+    uint8           TlmHeader[CFE_SB_TLM_HDR_SIZE];
+
+    /** \brief  */
+	float            Z_P;
+
+    /** \brief  */
+	float            Z_VEL_P;
+
+    /** \brief  */
+	float            Z_VEL_I;
+
+    /** \brief  */
+	float            Z_VEL_D;
+
+    /** \brief  */
+	float            Z_VEL_MAX_UP;
+
+    /** \brief  */
+	float            Z_VEL_MAX_DN;
+
+    /** \brief  */
+	float            Z_FF;
+
+    /** \brief  */
+	float            XY_P;
+
+    /** \brief  */
+	float            XY_VEL_P;
+
+    /** \brief  */
+	float            XY_VEL_I;
+
+    /** \brief  */
+	float            XY_VEL_D;
+
+    /** \brief  */
+	float            XY_CRUISE;
+
+    /** \brief  */
+	float            VEL_MAN_MAX;
+
+    /** \brief  */
+	float            XY_VEL_MAX;
+
+    /** \brief  */
+	float            XY_FF;
+
+    /** \brief  */
+	float            TILTMAX_AIR;
+
+    /** \brief  */
+	float            ACC_HOR_MAX;
+
+    /** \brief  */
+	float            ACC_UP_MAX;
+
+    /** \brief  */
+	float            ACC_DOWN_MAX;
+
+    /** \brief  */
+	float            MPC_DEC_HOR_SLOW;
+
+
+} MPC_DiagPacket_t;
+
+/**
 **  \brief MPC set PID cmd
 */
 typedef struct

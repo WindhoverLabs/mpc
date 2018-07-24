@@ -460,18 +460,6 @@ typedef struct
     float ACC_HOR_MAX;
 
     /**
-     * Maximum horizonal braking deceleration in velocity controlled modes
-     *
-     * @unit m/s/s
-     * @min 2.0
-     * @max 15.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
-     */
-    float DEC_HOR_MAX;
-
-    /**
      * Maximum vertical acceleration in velocity controlled modes upward
      *
      * @unit m/s/s
@@ -657,18 +645,6 @@ typedef struct
      * @group Multicopter Position Control
      */
     float MPC_VEL_MANUAL;
-
-    /**
-     * Acceleration for auto and for manual
-     *
-     * @unit m/s/s
-     * @min 2.0
-     * @max 15.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
-     */
-    float MPC_ACC_HOR;
 
     /**
      * Acceptance Radius
