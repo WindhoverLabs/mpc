@@ -1264,8 +1264,8 @@ void MPC::ControlManual(float dt)
 	SetManualAccelerationZ(MaxAccZ, StickZ, dt);
 
 	/* Prepare cruise speed (m/s) vector to scale the velocity setpoint */
-	float VelMag = (ConfigTblPtr->MPC_VEL_MANUAL < m_VelMaxXy) ? ConfigTblPtr->MPC_VEL_MANUAL : m_VelMaxXy;
-	math::Vector3F VelCruiseScale(VelMag, VelMag, (ManVelSp[2] > 0.0f) ? ConfigTblPtr->Z_VEL_MAX_DN : ConfigTblPtr->Z_VEL_MAX_UP);
+	float m_VelMaxXy = (ConfigTblPtr->MPC_VEL_MANUAL < m_VelMaxXy) ? ConfigTblPtr->MPC_VEL_MANUAL : m_VelMaxXy;
+	math::Vector3F VelCruiseScale(m_VelMaxXy, m_VelMaxXy, (ManVelSp[2] > 0.0f) ? ConfigTblPtr->Z_VEL_MAX_DN : ConfigTblPtr->Z_VEL_MAX_UP);
 
 	/* Setpoint scaled to cruise speed */
 	ManVelSp = ManVelSp.EMult(VelCruiseScale);
@@ -3124,7 +3124,7 @@ void MPC::SetManualAccelerationXY(math::Vector2F &StickXy, const float Dt)
 	{
 		if (ConfigTblPtr->MPC_JERK_MAX > ConfigTblPtr->MPC_JERK_MIN)
 		{
-			m_ManualJerkLimitXY = (ConfigTblPtr->MPC_JERK_MAX - ConfigTblPtr->MPC_JERK_MIN) / ConfigTblPtr->MPC_VEL_MANUAL *
+			m_ManualJerkLimitXY = (ConfigTblPtr->MPC_JERK_MAX - ConfigTblPtr->MPC_JERK_MIN) / m_VelMaxXy *
 						sqrtf(m_Velocity[0] * m_Velocity[0] + m_Velocity[1] * m_Velocity[1]) + ConfigTblPtr->MPC_JERK_MIN;
 
 			/* We start braking with lowest accleration */

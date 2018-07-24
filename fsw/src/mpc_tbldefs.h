@@ -281,18 +281,6 @@ typedef struct
     float XY_CRUISE;
 
     /**
-     * Nominal horizontal velocity for manual controlled mode
-     *
-     * @unit m/s
-     * @min 3.0
-     * @max 20.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
-     */
-    float VEL_MAN_MAX;
-
-    /**
      * Distance Threshold Horizontal Auto
      *
      * The distance defines at which point the vehicle
