@@ -603,6 +603,12 @@ void MPC::ProcessAppCmds(CFE_SB_Msg_t* MsgPtr)
 						VelD[2]);
 				break;
 
+            case MPC_SEND_DIAG_CC:
+            	ReportDiagnostic();
+            	HkTlm.usCmdCnt++;
+            	(void) CFE_EVS_SendEvent(MPC_SEND_DIAG_EID, CFE_EVS_INFORMATION, "Sending Diag packet.");
+            	break;
+
             default:
                 HkTlm.usCmdErrCnt++;
                 (void) CFE_EVS_SendEvent(MPC_CC_ERR_EID, CFE_EVS_ERROR,
