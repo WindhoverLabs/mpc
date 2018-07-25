@@ -183,6 +183,7 @@ public:
 
 	bool WasArmed;
 	bool WasLanded;
+    bool receivedLocalPosition; /**< Flag for vehicle local position received. */
 
     /************************************************************************/
     /** \brief Multicopter Position Control (MPC) application entry point
