@@ -890,16 +890,23 @@ void MPC::Execute(void)
 		m_VehicleAttitudeSetpointMsg.Timestamp = PX4LIB_GetPX4TimeUs();
 	}
 
-	if (!m_InTakeoff && m_VehicleLandDetectedMsg.Landed && m_VehicleControlModeMsg.Armed &&
+
+//    OS_printf("m_VehicleLandDetectedMsg.Landed %i\n", m_VehicleLandDetectedMsg.Landed);
+//    OS_printf("m_VehicleControlModeMsg.Armed %u\n", m_VehicleControlModeMsg.Armed == PX4_ARMING_STATE_ARMED);
+//    OS_printf("ManualWantsTakeoff() %i\n", ManualWantsTakeoff());
+//    OS_printf("InAutoTakeoff() %i\n", InAutoTakeoff());
+
+	if (!m_InTakeoff && m_VehicleLandDetectedMsg.Landed && m_VehicleControlModeMsg.Armed == PX4_ARMING_STATE_ARMED &&
 		(InAutoTakeoff() || ManualWantsTakeoff()))
 	{
+        OS_printf("In takeoff\n");
 		m_InTakeoff = TRUE;
 		/* This ramp starts negative and goes to positive later because we want to
 		*  be as smooth as possible. If we start at 0, we alrady jump to hover throttle. */
 		m_TakeoffVelLimit = -0.5f;
 	}
 
-	else if (!m_VehicleControlModeMsg.Armed) {
+	else if (!m_VehicleControlModeMsg.Armed == PX4_ARMING_STATE_ARMED) {
 		/* If we're disarmed and for some reason were in a smooth takeoff, we reset that. */
 		m_InTakeoff = FALSE;
 	}
@@ -983,7 +990,7 @@ void MPC::Execute(void)
 	 * attitude setpoints for the transition).
 	 * - if not armed
 	 */
-	if (m_VehicleControlModeMsg.Armed &&
+	if (m_VehicleControlModeMsg.Armed == PX4_ARMING_STATE_ARMED &&
 		(!(m_VehicleControlModeMsg.ControlOffboardEnabled &&
 	      !(m_VehicleControlModeMsg.ControlPositionEnabled ||
 		    m_VehicleControlModeMsg.ControlVelocityEnabled ||
@@ -3332,7 +3339,7 @@ boolean MPC::ManualWantsTakeoff()
 	const boolean ManualControlPresent = m_VehicleControlModeMsg.ControlManualEnabled && m_ManualControlSetpointMsg.Timestamp > 0;
 
 	/* Manual takeoff is triggered if the throttle stick is above 65%. */
-	return (ManualControlPresent && m_ManualControlSetpointMsg.Z > 0.65f);
+	return (ManualControlPresent && m_ManualControlSetpointMsg.Z > 0.1f);
 }
 
 /************************/
