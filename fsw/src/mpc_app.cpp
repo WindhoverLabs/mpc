@@ -895,14 +895,13 @@ void MPC::Execute(void)
 //    OS_printf("ManualWantsTakeoff() %i\n", ManualWantsTakeoff());
 //    OS_printf("InAutoTakeoff() %i\n", InAutoTakeoff());
 
-	if (!m_InTakeoff && m_VehicleLandDetectedMsg.Landed && m_VehicleControlModeMsg.Armed == PX4_ARMING_STATE_ARMED &&
-		(InAutoTakeoff() || ManualWantsTakeoff()))
+	if (!m_InTakeoff && (!m_VehicleLandDetectedMsg.Landed && m_WasLanded) && m_VehicleControlModeMsg.Armed == PX4_ARMING_STATE_ARMED)
 	{
         OS_printf("In takeoff\n");
 		m_InTakeoff = TRUE;
 		/* This ramp starts negative and goes to positive later because we want to
 		*  be as smooth as possible. If we start at 0, we alrady jump to hover throttle. */
-		m_TakeoffVelLimit = -0.5f;
+		m_TakeoffVelLimit = -.75f;
 	}
 
 	else if (!m_VehicleControlModeMsg.Armed == PX4_ARMING_STATE_ARMED) {
@@ -2397,6 +2396,7 @@ void MPC::CalculateVelocitySetpoint(float dt)
 
 	m_VelocitySetpoint[2] = math::min(m_VelocitySetpoint[2], LandVelLimit);
 
+
 	/* Apply slew rate (aka acceleration limit) for smooth flying. */
 	if (!m_VehicleControlModeMsg.ControlAutoEnabled && !m_InTakeoff)
 	{
@@ -2406,11 +2406,15 @@ void MPC::CalculateVelocitySetpoint(float dt)
 	/* Special velocity setpoint limitation for smooth takeoff. */
 	if (m_InTakeoff)
 	{
+        OS_printf("m_TakeoffVelLimit %f\n", m_TakeoffVelLimit);
 		m_InTakeoff = m_TakeoffVelLimit < -m_VelocitySetpoint[2];
 		/* Ramp vertical velocity limit up to takeoff speed. */
 		m_TakeoffVelLimit += -m_VelocitySetpoint[2] * dt / ConfigTblPtr->TKO_RAMP_T;
 		/* Limit vertical velocity to the current ramp value. */
 		m_VelocitySetpoint[2] = math::max(m_VelocitySetpoint[2], -m_TakeoffVelLimit);
+
+        m_VelocitySetpoint[0] = 0.0f;
+        m_VelocitySetpoint[1] = 0.0f;
 	}
 
 	/* Make sure velocity setpoint is constrained in all directions. */
@@ -2490,7 +2494,7 @@ void MPC::CalculateThrustSetpoint(float dt)
 
 	/* If still or already on ground command zero xy velocity and zero xy
 	 * ThrustSp in body frame to consider uneven ground. */
-	if (m_VehicleLandDetectedMsg.GroundContact && !InAutoTakeoff() && !ManualWantsTakeoff())
+	if ((m_VehicleLandDetectedMsg.GroundContact || m_VehicleLandDetectedMsg.Landed) && !InAutoTakeoff() && !ManualWantsTakeoff())
 	{
 		/* Thrust setpoint in body frame*/
 		math::Vector3F ThrustSpBody = m_Rotation.Transpose() * ThrustSp;
@@ -3338,7 +3342,7 @@ boolean MPC::ManualWantsTakeoff()
 	const boolean ManualControlPresent = m_VehicleControlModeMsg.ControlManualEnabled && m_ManualControlSetpointMsg.Timestamp > 0;
 
 	/* Manual takeoff is triggered if the throttle stick is above 65%. */
-	return (ManualControlPresent && m_ManualControlSetpointMsg.Z > 0.1f);
+	return (ManualControlPresent && m_ManualControlSetpointMsg.Z > 0.65f);
 }
 
 /************************/
