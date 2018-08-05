@@ -622,7 +622,6 @@ void MPC::ReportHousekeeping()
     CFE_SB_SendMsg((CFE_SB_Msg_t*)&HkTlm);
 }
 
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*                                                                 */
 /* Send MPC Diagnostic Data                                        */
@@ -630,17 +629,17 @@ void MPC::ReportHousekeeping()
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 void MPC::ReportDiagnostic()
 {
-	DiagTlm.Z_P = ConfigTblPtr->Z_P;
-	DiagTlm.Z_VEL_P = ConfigTblPtr->Z_VEL_P;
-	DiagTlm.Z_VEL_I = ConfigTblPtr->Z_VEL_I;
-	DiagTlm.Z_VEL_D = ConfigTblPtr->Z_VEL_D;
+	DiagTlm.Z_P = m_PosP[2];
+	DiagTlm.Z_VEL_P = m_VelP[2];
+	DiagTlm.Z_VEL_I = m_VelI[2];
+	DiagTlm.Z_VEL_D = m_VelD[2];
 	DiagTlm.Z_VEL_MAX_UP = ConfigTblPtr->Z_VEL_MAX_UP;
 	DiagTlm.Z_VEL_MAX_DN = ConfigTblPtr->Z_VEL_MAX_DN;
 	DiagTlm.Z_FF = ConfigTblPtr->Z_FF;
-	DiagTlm.XY_P = ConfigTblPtr->XY_P;
-	DiagTlm.XY_VEL_P = ConfigTblPtr->XY_VEL_P;
-	DiagTlm.XY_VEL_I = ConfigTblPtr->XY_VEL_I;
-	DiagTlm.XY_VEL_D = ConfigTblPtr->XY_VEL_D;
+	DiagTlm.XY_P = m_PosP[0];
+	DiagTlm.XY_VEL_P = m_VelP[0];
+	DiagTlm.XY_VEL_I = m_VelI[0];
+	DiagTlm.XY_VEL_D = m_VelD[0];
 	DiagTlm.XY_CRUISE = ConfigTblPtr->XY_CRUISE;
 	DiagTlm.MPC_VEL_MANUAL = ConfigTblPtr->MPC_VEL_MANUAL;
 	DiagTlm.XY_VEL_MAX = ConfigTblPtr->XY_VEL_MAX;
@@ -898,7 +897,7 @@ void MPC::Execute(void)
 		m_TakeoffVelLimit = -.6f;
 	}
 
-	else if (!m_VehicleControlModeMsg.Armed) {
+	else if (!m_VehicleControlModeMsg.Armed == PX4_ARMING_STATE_ARMED) {
 		/* If we're disarmed and for some reason were in a smooth takeoff, we reset that. */
 		m_InTakeoff = FALSE;
 	}
@@ -982,7 +981,7 @@ void MPC::Execute(void)
 	 * attitude setpoints for the transition).
 	 * - if not armed
 	 */
-	if (m_VehicleControlModeMsg.Armed &&
+	if (m_VehicleControlModeMsg.Armed == PX4_ARMING_STATE_ARMED &&
 		(!(m_VehicleControlModeMsg.ControlOffboardEnabled &&
 	      !(m_VehicleControlModeMsg.ControlPositionEnabled ||
 		    m_VehicleControlModeMsg.ControlVelocityEnabled ||
@@ -2390,6 +2389,7 @@ void MPC::CalculateVelocitySetpoint(float dt)
 
 	m_VelocitySetpoint[2] = math::min(m_VelocitySetpoint[2], LandVelLimit);
 
+
 	/* Apply slew rate (aka acceleration limit) for smooth flying. */
 	if (!m_VehicleControlModeMsg.ControlAutoEnabled && !m_InTakeoff)
 	{
@@ -2399,11 +2399,15 @@ void MPC::CalculateVelocitySetpoint(float dt)
 	/* Special velocity setpoint limitation for smooth takeoff. */
 	if (m_InTakeoff)
 	{
+        OS_printf("m_TakeoffVelLimit %f\n", m_TakeoffVelLimit);
 		m_InTakeoff = m_TakeoffVelLimit < -m_VelocitySetpoint[2];
 		/* Ramp vertical velocity limit up to takeoff speed. */
 		m_TakeoffVelLimit += -m_VelocitySetpoint[2] * dt / ConfigTblPtr->TKO_RAMP_T;
 		/* Limit vertical velocity to the current ramp value. */
 		m_VelocitySetpoint[2] = math::max(m_VelocitySetpoint[2], -m_TakeoffVelLimit);
+
+        m_VelocitySetpoint[0] = 0.0f;
+        m_VelocitySetpoint[1] = 0.0f;
 	}
 
 	/* Make sure velocity setpoint is constrained in all directions. */
@@ -2483,7 +2487,7 @@ void MPC::CalculateThrustSetpoint(float dt)
 
 	/* If still or already on ground command zero xy velocity and zero xy
 	 * ThrustSp in body frame to consider uneven ground. */
-	if (m_VehicleLandDetectedMsg.GroundContact && !InAutoTakeoff() && !ManualWantsTakeoff())
+	if ((m_VehicleLandDetectedMsg.GroundContact || m_VehicleLandDetectedMsg.Landed) && !InAutoTakeoff() && !ManualWantsTakeoff())
 	{
 		/* Thrust setpoint in body frame*/
 		math::Vector3F ThrustSpBody = m_Rotation.Transpose() * ThrustSp;
