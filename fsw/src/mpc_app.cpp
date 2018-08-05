@@ -890,13 +890,12 @@ void MPC::Execute(void)
 		m_VehicleAttitudeSetpointMsg.Timestamp = PX4LIB_GetPX4TimeUs();
 	}
 
-	if (!m_InTakeoff && m_VehicleLandDetectedMsg.Landed && m_VehicleControlModeMsg.Armed &&
-		(InAutoTakeoff() || ManualWantsTakeoff()))
+	if (!m_InTakeoff && (!m_VehicleLandDetectedMsg.Landed && m_WasLanded) && m_VehicleControlModeMsg.Armed == PX4_ARMING_STATE_ARMED)
 	{
 		m_InTakeoff = TRUE;
 		/* This ramp starts negative and goes to positive later because we want to
 		*  be as smooth as possible. If we start at 0, we alrady jump to hover throttle. */
-		m_TakeoffVelLimit = -0.5f;
+		m_TakeoffVelLimit = -.6f;
 	}
 
 	else if (!m_VehicleControlModeMsg.Armed) {
