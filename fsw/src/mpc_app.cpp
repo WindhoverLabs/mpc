@@ -26,7 +26,6 @@
 #define MPC_CONSTANTS_ONE_G    9.80665f   /* m/s^2		*/
 #define SIGMA_SINGLE_OP        0.000001f
 #define SIGMA_NORM             0.001f
-#define nan FP_NAN
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*                                                                 */
@@ -608,6 +607,8 @@ void MPC::ReportHousekeeping()
 	HkTlm.VelMaxXy = m_VelMaxXy;
 	HkTlm.YawTakeoff = m_YawTakeoff;
 	HkTlm.Yaw = m_Yaw;
+	HkTlm.UserIntentionXY = m_UserIntentionXY;
+	HkTlm.UserIntentionZ = m_UserIntentionZ;
 	HkTlm.ModeAuto = m_ModeAuto;
 	HkTlm.PositionHoldEngaged = m_PositionHoldEngaged;
 	HkTlm.AltitudeHoldEngaged = m_AltitudeHoldEngaged;
@@ -883,8 +884,7 @@ void MPC::Execute(void)
 		m_VelocitySetpointPrevious.Zero();
 		m_VelocityPrevious.Zero();
 
-		/* Make sure attitude setpoint output "disables" attitude control
-		 * TODO: we need a defined setpoint to do this properly especially when adjusting the mixer */
+		/* Make sure attitude setpoint output "disables" attitude control */
 		m_VehicleAttitudeSetpointMsg.Thrust = 0.0f;
 		m_VehicleAttitudeSetpointMsg.Timestamp = PX4LIB_GetPX4TimeUs();
 	}
@@ -1048,7 +1048,6 @@ void MPC::UpdateVelocityDerivative(float dt)
 		return;
 	}
 
-	/* TODO: this logic should be in the estimator, not the controller! */
 	if (isfinite(m_VehicleLocalPositionMsg.X) &&
 		isfinite(m_VehicleLocalPositionMsg.Y) &&
 		isfinite(m_VehicleLocalPositionMsg.Z))
@@ -1659,7 +1658,7 @@ void MPC::ControlOffboard(float dt)
 		{
 			float YawTarget = _wrap_pi(m_VehicleAttitudeSetpointMsg.YawBody + m_PositionSetpointTripletMsg.Current.Yawspeed * dt);
 			float YawOffs = _wrap_pi(YawTarget - m_Yaw);
-			// TODO: Check if these need to be radians
+
 			const float YawRateMax = (math::radians(ConfigTblPtr->MAN_Y_MAX) < math::radians(ConfigTblPtr->MC_YAWRATE_MAX)) ? math::radians(ConfigTblPtr->MAN_Y_MAX) :
 					math::radians(ConfigTblPtr->MC_YAWRATE_MAX);
 			const float YawOffsetMax = YawRateMax / math::radians(ConfigTblPtr->MC_YAW_P);
@@ -2060,9 +2059,7 @@ void MPC::ControlAuto(float dt)
 					FinalCruiseSpeed = (FinalCruiseSpeed > SIGMA_NORM) ? FinalCruiseSpeed : SIGMA_NORM;
 					VelSpAlongTrack = FinalCruiseSpeed;
 
-					/* We want to accelerate not too fast
-					* TODO: change the name acceleration_hor_man to something that can
-					* be used by auto and manual */
+					/* We want to accelerate not too fast */
 					float acc_track = (FinalCruiseSpeed - VelSpAlongTrackPrev) / dt;
 
 					/* If yaw offset is large, only accelerate with 0.5m/s^2 */
@@ -2231,9 +2228,6 @@ void MPC::ControlAuto(float dt)
 			}
 			else
 			{
-				/* TODO: We should go in the direction we are heading
-				 * if current velocity is zero
-				 */
 				m_VelocitySetpoint[0] = 0.0f;
 				m_VelocitySetpoint[1] = 0.0f;
 			}
@@ -2501,8 +2495,6 @@ void MPC::CalculateThrustSetpoint(float dt)
 
 		/* Convert back to local frame (NED) */
 		ThrustSp = m_Rotation * ThrustSpBody;
-
-		//TODO or ThrustSp.Zero();
 	}
 
 	if (!m_VehicleControlModeMsg.ControlClimbRateEnabled && !m_VehicleControlModeMsg.ControlAccelerationEnabled)
@@ -3129,7 +3121,6 @@ void MPC::SetManualAccelerationXY(math::Vector2F &StickXy, const float Dt)
 	const boolean IsCurrentZero = (fabsf(StickXy.Length()) <= FLT_EPSILON);
 
 	/* Check intentions */
-	// TODO: Should this be IsPrevZero &&?
 	const boolean DoAcceleration = IsPrevZero || (IsAligned &&
 				     ((StickXy.Length() > m_StickInputXyPrev.Length()) || (fabsf(StickXy.Length() - 1.0f) < FLT_EPSILON)));
 	const boolean DoDeceleration = (IsAligned && (StickXy.Length() <= m_StickInputXyPrev.Length()));
@@ -3225,8 +3216,6 @@ void MPC::SetManualAccelerationXY(math::Vector2F &StickXy, const float Dt)
 				}
 				else if (m_ManualDirectionChangeHysteresis.get_state())
 				{
-					/* TODO: find conditions which are always continuous
-					 * only if stick input is large*/
 					if (StickXy.Length() > 0.6f)
 					{
 						m_AccelerationStateLimitXY = ConfigTblPtr->ACC_HOR_MAX;

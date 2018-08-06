@@ -265,6 +265,12 @@ typedef struct
 	/** \brief  */
 	float              Yaw;
 
+	/** \brief Defines what the user intends to do derived from the stick input in xy axis */
+	uint8   UserIntentionXY;
+
+	/** \brief Defines what the user intends to do derived from the stick input in z axis */
+	uint8   UserIntentionZ;
+
 	/** \brief  */
 	boolean            ModeAuto;
 
@@ -291,7 +297,6 @@ typedef struct
 
 	/** \brief  */
 	boolean            WasArmed;
-
 
 } MPC_HkTlm_t;
 
