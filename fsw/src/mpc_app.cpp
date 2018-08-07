@@ -2393,7 +2393,6 @@ void MPC::CalculateVelocitySetpoint(float dt)
 	/* Special velocity setpoint limitation for smooth takeoff. */
 	if (m_InTakeoff)
 	{
-        OS_printf("m_TakeoffVelLimit %f\n", m_TakeoffVelLimit);
 		m_InTakeoff = m_TakeoffVelLimit < -m_VelocitySetpoint[2];
 		/* Ramp vertical velocity limit up to takeoff speed. */
 		m_TakeoffVelLimit += -m_VelocitySetpoint[2] * dt / ConfigTblPtr->TKO_RAMP_T;
