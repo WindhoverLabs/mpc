@@ -576,7 +576,14 @@ void MPC::ProcessAppCmds(CFE_SB_Msg_t* MsgPtr)
 						m_VelI[2],
 						m_VelD[2]);
 				break;
-
+			
+			case MPC_SET_HOLD_DZ_CC:
+            	UpdateHoldDz((MPC_SetDzCmd_t *) MsgPtr);
+				HkTlm.usCmdCnt++;
+				(void) CFE_EVS_SendEvent(MPC_PID_UPDATE_EID, CFE_EVS_INFORMATION,
+						"Updating HOLD_DZ value: %f", ConfigTblPtr->HOLD_DZ);
+				break;
+			
             case MPC_SEND_DIAG_CC:
             	ReportDiagnostic();
             	HkTlm.usCmdCnt++;
@@ -650,6 +657,7 @@ void MPC::ReportDiagnostic()
 	DiagTlm.ACC_UP_MAX = ConfigTblPtr->ACC_UP_MAX;
 	DiagTlm.ACC_DOWN_MAX = ConfigTblPtr->ACC_DOWN_MAX;
 	DiagTlm.MPC_DEC_HOR_SLOW = ConfigTblPtr->MPC_DEC_HOR_SLOW;
+	DiagTlm.MPC_HOLD_DZ = ConfigTblPtr->HOLD_DZ;
 
     CFE_SB_TimeStampMsg((CFE_SB_Msg_t*)&DiagTlm);
     CFE_SB_SendMsg((CFE_SB_Msg_t*)&DiagTlm);
@@ -2846,6 +2854,11 @@ void MPC::UpdateZPids(MPC_SetPidCmd_t* PidMsg)
 	m_VelD[2] = PidMsg->PidVelD;
 }
 
+void MPC::UpdateHoldDz(MPC_SetDzCmd_t* DzMsg)
+{
+    ConfigTblPtr->HOLD_DZ = DzMsg->Deadzone;
+    //TODO: Call tbl updated
+}
 
 void MPC::UpdateParamsFromTable(void)
 {

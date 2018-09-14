@@ -845,6 +845,18 @@ public:
 	void UpdateZPids(MPC_SetPidCmd_t* PidMsg);
 
     /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/
+	void UpdateHoldDz(MPC_SetDzCmd_t* DzMsg);
+
+    /************************************************************************/
     /** \brief Validate MPC configuration table
     **
     **  \par Description

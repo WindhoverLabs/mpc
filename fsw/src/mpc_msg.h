@@ -211,6 +211,38 @@ extern "C" {
 */
 #define MPC_SEND_DIAG_CC            (4)
 
+/** \mpccmd
+**
+**  \par Description
+**
+**
+**  \par Command Structure
+**       #MPC_NoArgCmd_t
+**
+**  \par Command Verification
+**       Successful execution of this command may be verified with
+**       the following telemetry:
+**       - \b \c \MPC_CMDACPTCNT - command counter will increment
+**       - The #TODO informational event message will be
+**         generated when the command is received
+**
+**  \par Error Conditions
+**       This command may fail for the following reason(s):
+**       - Command packet length not as expected
+**
+**  \par Evidence of failure may be found in the following telemetry:
+**       - \b \c \MPC_CMDRJCTCNT - command error counter will increment
+**       - Error specific event message #TODO
+**
+**  \par Criticality
+**       TODO
+**
+**  \sa #MPC_SEND_DIAG_CC
+*/
+#define MPC_SET_HOLD_DZ_CC            (5)
+
+
+
 /************************************************************************
 ** Local Structure Declarations
 *************************************************************************/
@@ -367,6 +399,8 @@ typedef struct
     /** \brief  */
 	float            MPC_DEC_HOR_SLOW;
 
+    /** \brief  */
+	float            MPC_HOLD_DZ;
 
 } MPC_DiagPacket_t;
 
@@ -391,6 +425,19 @@ typedef struct
 	float  PidVelD;
 
 } MPC_SetPidCmd_t;
+
+/**
+**  \brief MPC set Hold DZ
+*/
+typedef struct
+{
+	/** \brief cFE SB Cmd Msg Hdr */
+	uint8  ucCmdHeader[CFE_SB_CMD_HDR_SIZE];
+
+	/** \brief PID Gain */
+	float  Deadzone;
+
+} MPC_SetDzCmd_t;
 
 #ifdef __cplusplus
 }
