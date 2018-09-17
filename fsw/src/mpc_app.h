@@ -857,6 +857,18 @@ public:
 	void UpdateHoldDz(MPC_SetDzCmd_t* DzMsg);
 
     /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/	
+	void UpdateStickExpo(MPC_SetStickExpoCmd_t* ExpoMsg);
+
+    /************************************************************************/
     /** \brief Validate MPC configuration table
     **
     **  \par Description

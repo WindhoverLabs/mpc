@@ -285,6 +285,28 @@ typedef enum {
 **  This event message is issued when
 */
 	MPC_SEND_DIAG_EID = 15,
+	
+/** \brief <tt> '' </tt>
+**  \event <tt> '' </tt>
+**
+**  \par Type: TODO
+**
+**  \par Cause:
+**
+**  This event message is issued when
+*/
+	MPC_SET_DZ_EID = 16,
+
+/** \brief <tt> '' </tt>
+**  \event <tt> '' </tt>
+**
+**  \par Type: TODO
+**
+**  \par Cause:
+**
+**  This event message is issued when
+*/
+	MPC_SET_EXPO_EID = 17,
 
 /** \brief <tt> This is a count of all the app events and should not be used. </tt> */
 	MPC_EVT_CNT

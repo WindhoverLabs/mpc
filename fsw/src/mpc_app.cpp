@@ -580,7 +580,7 @@ void MPC::ProcessAppCmds(CFE_SB_Msg_t* MsgPtr)
 			case MPC_SET_HOLD_DZ_CC:
             	UpdateHoldDz((MPC_SetDzCmd_t *) MsgPtr);
 				HkTlm.usCmdCnt++;
-				(void) CFE_EVS_SendEvent(MPC_PID_UPDATE_EID, CFE_EVS_INFORMATION,
+				(void) CFE_EVS_SendEvent(MPC_SET_DZ_EID, CFE_EVS_INFORMATION,
 						"Updating HOLD_DZ value: %f", ConfigTblPtr->HOLD_DZ);
 				break;
 			
@@ -588,6 +588,15 @@ void MPC::ProcessAppCmds(CFE_SB_Msg_t* MsgPtr)
             	ReportDiagnostic();
             	HkTlm.usCmdCnt++;
             	(void) CFE_EVS_SendEvent(MPC_SEND_DIAG_EID, CFE_EVS_INFORMATION, "Sending Diag packet.");
+            	break;
+        	
+            case MPC_SET_STICK_EXPO_CC:
+            	UpdateStickExpo((MPC_SetStickExpoCmd_t *) MsgPtr);
+            	HkTlm.usCmdCnt++;
+            	(void) CFE_EVS_SendEvent(MPC_SET_EXPO_EID, CFE_EVS_INFORMATION, 
+            	                        "Updating stick expo values: XY: %f Z: %f", 
+            	                        ConfigTblPtr->XY_MAN_EXPO,
+            	                        ConfigTblPtr->Z_MAN_EXPO);
             	break;
 
             default:
@@ -658,6 +667,8 @@ void MPC::ReportDiagnostic()
 	DiagTlm.ACC_DOWN_MAX = ConfigTblPtr->ACC_DOWN_MAX;
 	DiagTlm.MPC_DEC_HOR_SLOW = ConfigTblPtr->MPC_DEC_HOR_SLOW;
 	DiagTlm.MPC_HOLD_DZ = ConfigTblPtr->HOLD_DZ;
+	DiagTlm.XY_MAN_EXPO = ConfigTblPtr->XY_MAN_EXPO;
+	DiagTlm.Z_MAN_EXPO = ConfigTblPtr->Z_MAN_EXPO;
 
     CFE_SB_TimeStampMsg((CFE_SB_Msg_t*)&DiagTlm);
     CFE_SB_SendMsg((CFE_SB_Msg_t*)&DiagTlm);
@@ -2857,6 +2868,13 @@ void MPC::UpdateZPids(MPC_SetPidCmd_t* PidMsg)
 void MPC::UpdateHoldDz(MPC_SetDzCmd_t* DzMsg)
 {
     ConfigTblPtr->HOLD_DZ = DzMsg->Deadzone;
+    //TODO: Call tbl updated
+}
+
+void MPC::UpdateStickExpo(MPC_SetStickExpoCmd_t* ExpoMsg)
+{
+    ConfigTblPtr->XY_MAN_EXPO = ExpoMsg->XY;
+    ConfigTblPtr->Z_MAN_EXPO = ExpoMsg->Z;
     //TODO: Call tbl updated
 }
 
