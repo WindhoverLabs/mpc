@@ -2844,38 +2844,59 @@ MPC_CrossSphereLine_Exit_Tag:
 
 void MPC::UpdateXyPids(MPC_SetPidCmd_t* PidMsg)
 {
+    /* Update values in Vector3F copies used for math operations */
+    /* X Index */
 	m_PosP[0] = PidMsg->PidGain;
-	m_PosP[1] = PidMsg->PidGain;
-
 	m_VelP[0] = PidMsg->PidVelP;
-	m_VelP[1] = PidMsg->PidVelP;
-
 	m_VelI[0] = PidMsg->PidVelI;
-	m_VelI[1] = PidMsg->PidVelI;
-
 	m_VelD[0] = PidMsg->PidVelD;
+
+    /* Y Index */
+	m_PosP[1] = PidMsg->PidGain;
+	m_VelP[1] = PidMsg->PidVelP;
+	m_VelI[1] = PidMsg->PidVelI;
 	m_VelD[1] = PidMsg->PidVelD;;
+
+    /* Update in table */
+    ConfigTblPtr->XY_P = PidMsg->PidGain;
+    ConfigTblPtr->XY_VEL_P = PidMsg->PidVelP;
+    ConfigTblPtr->XY_VEL_I = PidMsg->PidVelI;
+    ConfigTblPtr->XY_VEL_D = PidMsg->PidVelD;
+    
+    CFE_TBL_Modified(ConfigTblHdl);
 }
 
 void MPC::UpdateZPids(MPC_SetPidCmd_t* PidMsg)
 {
+    /* Update values in Vector3F copy used for math operations */
+    /* Z Index */
 	m_PosP[2] = PidMsg->PidGain;
 	m_VelP[2] = PidMsg->PidVelP;
 	m_VelI[2] = PidMsg->PidVelI;
 	m_VelD[2] = PidMsg->PidVelD;
+
+    /* Update in table */
+    ConfigTblPtr->Z_P = PidMsg->PidGain;
+    ConfigTblPtr->Z_VEL_P = PidMsg->PidVelP;
+    ConfigTblPtr->Z_VEL_I = PidMsg->PidVelI;
+    ConfigTblPtr->Z_VEL_D = PidMsg->PidVelD;
+
+    CFE_TBL_Modified(ConfigTblHdl);
 }
 
 void MPC::UpdateHoldDz(MPC_SetDzCmd_t* DzMsg)
 {
     ConfigTblPtr->HOLD_DZ = DzMsg->Deadzone;
-    //TODO: Call tbl updated
+
+    CFE_TBL_Modified(ConfigTblHdl);
 }
 
 void MPC::UpdateStickExpo(MPC_SetStickExpoCmd_t* ExpoMsg)
 {
     ConfigTblPtr->XY_MAN_EXPO = ExpoMsg->XY;
     ConfigTblPtr->Z_MAN_EXPO = ExpoMsg->Z;
-    //TODO: Call tbl updated
+
+    CFE_TBL_Modified(ConfigTblHdl);
 }
 
 void MPC::UpdateParamsFromTable(void)
