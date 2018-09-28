@@ -2001,7 +2001,13 @@ void MPC::ControlAuto(float dt)
 
 				/* Check if the previous is in front */
 				boolean PreviousInFront = (VecPrevToPos * UnitPrevToCurrent) < 0.0f;
-
+                
+                OS_printf("CloseToCurrent : %i\n", CloseToCurrent);
+                OS_printf("CloseToPrev : %i\n", CloseToPrev);
+                OS_printf("Is2TargetThreshold : %i\n", Is2TargetThreshold);
+                OS_printf("CurrentBehind : %i\n", CurrentBehind);
+                OS_printf("PreviousInFront : %i\n", PreviousInFront);
+                
 				/* Default velocity along line prev-current */
 				float VelSpAlongTrack = GetCruisingSpeedXY();
 
@@ -2091,7 +2097,8 @@ void MPC::ControlAuto(float dt)
 
 					/* Enforce minimum cruise speed */
 					VelSpAlongTrack  = math::constrain(VelSpAlongTrack, SIGMA_NORM, FinalCruiseSpeed);
-
+                    OS_printf("FinalCruiseSpeed : %f\n", FinalCruiseSpeed);
+                    OS_printf("VelSpAlongTrack : %f\n", VelSpAlongTrack);
 				}
 				else if (CloseToCurrent)
 				{
@@ -2175,6 +2182,7 @@ void MPC::ControlAuto(float dt)
 				/* Orthogonal velocity setpoint is smaller than cruise speed */
 				if (VelSpOrthogonal < GetCruisingSpeedXY() && !CurrentBehind)
 				{
+				    OS_printf("VelSpOrthogonal < GetCruisingSpeedXY() && !CurrentBehind\n");
 					/* We need to limit VelSpAlongTrack such that cruise speed  is never exceeded but still can keep velocity orthogonal to track */
 					if (CruiseSpMag > GetCruisingSpeedXY())
 					{
@@ -2187,6 +2195,7 @@ void MPC::ControlAuto(float dt)
 				}
 				else if (CurrentBehind)
 				{
+				    OS_printf("CurrentBehind\n");
 					/* Current is behind */
 					if (VecPosToCurrent.Length()  > 0.01f)
 					{
@@ -2202,11 +2211,13 @@ void MPC::ControlAuto(float dt)
 				}
 				else
 				{
+				    OS_printf("We are more than cruise_speed away from track\n");
 					/* We are more than cruise_speed away from track */
 
 					/* If previous is in front just go directly to previous point */
 					if (PreviousInFront)
 					{
+					    OS_printf("PreviousInFront\n");
 						VecPosToClosest[0] = m_PreviousPositionSetpoint[0] - m_Position[0];
 						VecPosToClosest[1] = m_PreviousPositionSetpoint[1] - m_Position[1];
 					}
@@ -2219,17 +2230,22 @@ void MPC::ControlAuto(float dt)
 						cruise_sp = GetCruisingSpeedXY();
 					}
 
+                    OS_printf("cruise_sp %f\n", cruise_sp);
 					/* Sanity check: don't divide by zero */
 					if (VecPosToClosest.Length() > SIGMA_NORM)
 					{
 						PosSp[0] = m_Position[0] + VecPosToClosest[0] / VecPosToClosest.Length() * cruise_sp / m_PosP[0];
 						PosSp[1] = m_Position[1] + VecPosToClosest[1] / VecPosToClosest.Length() * cruise_sp / m_PosP[1];
+						OS_printf("VecPosToClosest.Length() > SIGMA_NORM\n");
 					}
 					else
 					{
 						PosSp[0] = ClosestPoint[0];
 						PosSp[1] = ClosestPoint[1];
 					}
+					
+					OS_printf("PosSp[0] %f\n", PosSp[0]);
+					OS_printf("PosSp[1] %f\n", PosSp[1]);
 				}
 			}
 
