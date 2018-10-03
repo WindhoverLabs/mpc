@@ -271,6 +271,35 @@ extern "C" {
 */
 #define MPC_SET_STICK_EXPO_CC            (6)
 
+/** \mpccmd
+**
+**  \par Description
+**
+**
+**  \par Command Structure
+**       #MPC_NoArgCmd_t
+**
+**  \par Command Verification
+**       Successful execution of this command may be verified with
+**       the following telemetry:
+**       - \b \c \MPC_CMDACPTCNT - command counter will increment
+**       - The #TODO informational event message will be
+**         generated when the command is received
+**
+**  \par Error Conditions
+**       This command may fail for the following reason(s):
+**       - Command packet length not as expected
+**
+**  \par Evidence of failure may be found in the following telemetry:
+**       - \b \c \MPC_CMDRJCTCNT - command error counter will increment
+**       - Error specific event message #TODO
+**
+**  \par Criticality
+**       TODO
+**
+**  \sa #MPC_SET_STICK_EXPO
+*/
+#define MPC_SET_TKO_RAMP_CC              (7)
 
 /************************************************************************
 ** Local Structure Declarations
@@ -436,6 +465,9 @@ typedef struct
 	
     /** \brief  */
 	float            Z_MAN_EXPO;
+	
+	/** \brief  */
+	float            TKO_RAMP_T;
 
 } MPC_DiagPacket_t;
 
@@ -489,6 +521,19 @@ typedef struct
 	float  Z;
 
 } MPC_SetStickExpoCmd_t;
+
+/**
+**  \brief MPC set take ramp time
+*/
+typedef struct
+{
+	/** \brief cFE SB Cmd Msg Hdr */
+	uint8  ucCmdHeader[CFE_SB_CMD_HDR_SIZE];
+
+	/** \brief XY Expo */
+	float  TKO_RAMP_T;
+	
+} MPC_SetTkoRampCmd_t;
 
 #ifdef __cplusplus
 }

@@ -308,6 +308,17 @@ typedef enum {
 */
 	MPC_SET_EXPO_EID = 17,
 
+/** \brief <tt> '' </tt>
+**  \event <tt> '' </tt>
+**
+**  \par Type: TODO
+**
+**  \par Cause:
+**
+**  This event message is issued when
+*/
+	MPC_SET_TKO_RAMP_EID = 18,
+
 /** \brief <tt> This is a count of all the app events and should not be used. </tt> */
 	MPC_EVT_CNT
 } MPC_EventIds_t;

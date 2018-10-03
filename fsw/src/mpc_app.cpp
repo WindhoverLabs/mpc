@@ -598,6 +598,14 @@ void MPC::ProcessAppCmds(CFE_SB_Msg_t* MsgPtr)
             	                        ConfigTblPtr->XY_MAN_EXPO,
             	                        ConfigTblPtr->Z_MAN_EXPO);
             	break;
+        	
+        	case MPC_SET_TKO_RAMP_CC:
+            	UpdateTakeoffTampTime((MPC_SetTkoRampCmd_t *) MsgPtr);
+            	HkTlm.usCmdCnt++;
+            	(void) CFE_EVS_SendEvent(MPC_SET_TKO_RAMP_EID, CFE_EVS_INFORMATION, 
+            	                        "Updating takeoff ramp time: %f", 
+            	                        ConfigTblPtr->TKO_RAMP_T);
+            	break;
 
             default:
                 HkTlm.usCmdErrCnt++;
@@ -669,7 +677,8 @@ void MPC::ReportDiagnostic()
 	DiagTlm.MPC_HOLD_DZ = ConfigTblPtr->HOLD_DZ;
 	DiagTlm.XY_MAN_EXPO = ConfigTblPtr->XY_MAN_EXPO;
 	DiagTlm.Z_MAN_EXPO = ConfigTblPtr->Z_MAN_EXPO;
-
+	DiagTlm.TKO_RAMP_T = ConfigTblPtr->TKO_RAMP_T;
+	
     CFE_SB_TimeStampMsg((CFE_SB_Msg_t*)&DiagTlm);
     CFE_SB_SendMsg((CFE_SB_Msg_t*)&DiagTlm);
 }
@@ -913,7 +922,7 @@ void MPC::Execute(void)
 		m_InTakeoff = TRUE;
 		/* This ramp starts negative and goes to positive later because we want to
 		*  be as smooth as possible. If we start at 0, we alrady jump to hover throttle. */
-		m_TakeoffVelLimit = -.6f;
+		m_TakeoffVelLimit = -.5f;
 	}
 
 	else if (!m_VehicleControlModeMsg.Armed == PX4_ARMING_STATE_ARMED) {
@@ -2434,8 +2443,8 @@ void MPC::CalculateVelocitySetpoint(float dt)
 		/* Limit vertical velocity to the current ramp value. */
 		m_VelocitySetpoint[2] = math::max(m_VelocitySetpoint[2], -m_TakeoffVelLimit);
 
-        m_VelocitySetpoint[0] = 0.0f;
-        m_VelocitySetpoint[1] = 0.0f;
+//        m_VelocitySetpoint[0] = 0.0f;
+//        m_VelocitySetpoint[1] = 0.0f;
 	}
 
 	/* Make sure velocity setpoint is constrained in all directions. */
@@ -2911,6 +2920,13 @@ void MPC::UpdateStickExpo(MPC_SetStickExpoCmd_t* ExpoMsg)
 {
     ConfigTblPtr->XY_MAN_EXPO = ExpoMsg->XY;
     ConfigTblPtr->Z_MAN_EXPO = ExpoMsg->Z;
+
+    CFE_TBL_Modified(ConfigTblHdl);
+}
+
+void MPC::UpdateTakeoffTampTime(MPC_SetTkoRampCmd_t* TkoRampMsg)
+{
+    ConfigTblPtr->TKO_RAMP_T = TkoRampMsg->TKO_RAMP_T;
 
     CFE_TBL_Modified(ConfigTblHdl);
 }

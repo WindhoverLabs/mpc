@@ -869,6 +869,18 @@ public:
 	void UpdateStickExpo(MPC_SetStickExpoCmd_t* ExpoMsg);
 
     /************************************************************************/
+    /** \brief
+    **
+    **  \par Description
+    **       This function
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    *************************************************************************/	
+	void UpdateTakeoffTampTime(MPC_SetTkoRampCmd_t* TkoRampMsg);
+
+    /************************************************************************/
     /** \brief Validate MPC configuration table
     **
     **  \par Description
