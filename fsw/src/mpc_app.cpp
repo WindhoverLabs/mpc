@@ -2360,6 +2360,7 @@ void MPC::CalculateVelocitySetpoint(float dt)
 		}
 		else
 		{
+		    OS_printf("Got a NAN velocity setpoint\n");
 			m_VelocitySetpoint[0] = 0.0f;
 			m_VelocitySetpoint[1] = 0.0f;
 		}
@@ -2496,6 +2497,7 @@ void MPC::CalculateThrustSetpoint(float dt)
 	{
 		if (!isfinite(m_VelocitySetpoint[i]))
 		{
+		    OS_printf("NAN Vel setpoint\n");
 			m_VelocitySetpoint[i] = 0.0f;
 		}
 	}
@@ -2681,6 +2683,11 @@ void MPC::CalculateThrustSetpoint(float dt)
 		}
 
 		ThrustBodyZ = ThrMax;
+	}
+	
+	/* if any of the thrust setpoint is bogus, send out a warning */
+	if (!isfinite(ThrustSp[0]) || !isfinite(ThrustSp[1]) || !isfinite(ThrustSp[2])) {
+		OS_printf("Thrust setpoint not finite\n");
 	}
 
 	m_VehicleAttitudeSetpointMsg.Thrust = math::max(ThrustBodyZ, ThrMin);
@@ -3003,7 +3010,7 @@ void MPC::ApplyVelocitySetpointSlewRate(float dt)
 	/* limit total horizontal acceleration */
 	if (AccXy.Length() > m_AccelerationStateLimitXY)
 	{
-		VelSpXy = AccXy.Normalized() * m_AccelerationStateLimitXY * dt + VelSpPrevXy;
+		VelSpXy = (AccXy.Normalized() * m_AccelerationStateLimitXY * dt) + VelSpPrevXy;
 		m_VelocitySetpoint[0] = VelSpXy[0];
 		m_VelocitySetpoint[1] = VelSpXy[1];
 	}
