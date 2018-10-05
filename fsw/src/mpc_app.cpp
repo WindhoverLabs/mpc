@@ -2504,7 +2504,6 @@ void MPC::CalculateThrustSetpoint(float dt)
 
 	/* Velocity error */
 	math::Vector3F VelErr = m_VelocitySetpoint - m_Velocity;
-	OS_printf("VelErr: [%f, %f, %f]\n", VelErr[0], VelErr[1], VelErr[2]);
 
 	/* Thrust vector in NED frame. */
 	math::Vector3F ThrustSp(0.0f, 0.0f, 0.0f);
