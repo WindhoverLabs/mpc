@@ -2504,6 +2504,7 @@ void MPC::CalculateThrustSetpoint(float dt)
 
 	/* Velocity error */
 	math::Vector3F VelErr = m_VelocitySetpoint - m_Velocity;
+	OS_printf("VelErr: [%f, %f, %f]\n", VelErr[0], VelErr[1], VelErr[2]);
 
 	/* Thrust vector in NED frame. */
 	math::Vector3F ThrustSp(0.0f, 0.0f, 0.0f);
@@ -2589,7 +2590,7 @@ void MPC::CalculateThrustSetpoint(float dt)
 	if (m_VehicleControlModeMsg.ControlVelocityEnabled || m_VehicleControlModeMsg.ControlAccelerationEnabled)
 	{
 		/* Limit max tilt */
-		if (ThrMin >= 0.0f && TiltMax < M_PI / 2 - 0.05f)
+		if (ThrMin >= 0.0f && TiltMax < M_PI / 2.0f - 0.05f)
 		{
 			/* Absolute horizontal thrust */
 			float ThrustSpXyLen = math::Vector2F(ThrustSp[0], ThrustSp[1]).Length();
@@ -2667,6 +2668,7 @@ void MPC::CalculateThrustSetpoint(float dt)
 				float ThrustXyMax = sqrtf(ThrMax * ThrMax - ThrustSp[2] * ThrustSp[2]);
 				float ThrustXyAbs = math::Vector2F(ThrustSp[0], ThrustSp[1]).Length();
 				float k = ThrustXyMax / ThrustXyAbs;
+				OS_printf("Limiting xy thrust. ThrustXyMax: %f ThrustXyAbs %f\n", ThrustXyMax, ThrustXyAbs);
 				ThrustSp[0] *= k;
 				ThrustSp[1] *= k;
 				/* Don't freeze x,y integrals if they both want to throttle down */
