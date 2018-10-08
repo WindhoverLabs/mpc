@@ -2360,7 +2360,6 @@ void MPC::CalculateVelocitySetpoint(float dt)
 		}
 		else
 		{
-		    OS_printf("Got a NAN velocity setpoint\n");
 			m_VelocitySetpoint[0] = 0.0f;
 			m_VelocitySetpoint[1] = 0.0f;
 		}
@@ -2497,7 +2496,6 @@ void MPC::CalculateThrustSetpoint(float dt)
 	{
 		if (!isfinite(m_VelocitySetpoint[i]))
 		{
-		    OS_printf("NAN Vel setpoint\n");
 			m_VelocitySetpoint[i] = 0.0f;
 		}
 	}
@@ -2667,7 +2665,6 @@ void MPC::CalculateThrustSetpoint(float dt)
 				float ThrustXyMax = sqrtf(ThrMax * ThrMax - ThrustSp[2] * ThrustSp[2]);
 				float ThrustXyAbs = math::Vector2F(ThrustSp[0], ThrustSp[1]).Length();
 				float k = ThrustXyMax / ThrustXyAbs;
-				OS_printf("Limiting xy thrust. ThrustXyMax: %f ThrustXyAbs %f\n", ThrustXyMax, ThrustXyAbs);
 				ThrustSp[0] *= k;
 				ThrustSp[1] *= k;
 				/* Don't freeze x,y integrals if they both want to throttle down */
@@ -2686,11 +2683,6 @@ void MPC::CalculateThrustSetpoint(float dt)
 		ThrustBodyZ = ThrMax;
 	}
 	
-	/* if any of the thrust setpoint is bogus, send out a warning */
-	if (!isfinite(ThrustSp[0]) || !isfinite(ThrustSp[1]) || !isfinite(ThrustSp[2])) {
-		OS_printf("Thrust setpoint not finite\n");
-	}
-
 	m_VehicleAttitudeSetpointMsg.Thrust = math::max(ThrustBodyZ, ThrMin);
 
 	/* Update integrals */
