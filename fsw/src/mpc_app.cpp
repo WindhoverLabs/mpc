@@ -2686,8 +2686,16 @@ void MPC::CalculateThrustSetpoint(float dt)
 
 		ThrustBodyZ = ThrMax;
 	}
-	
-	m_VehicleAttitudeSetpointMsg.Thrust = math::max(ThrustBodyZ, ThrMin);
+
+    /* Allow for zero thrust while landed, but not in flight */
+	if(m_VehicleLandDetectedMsg.Landed || m_InTakeoff)
+	{	    
+	    m_VehicleAttitudeSetpointMsg.Thrust = math::max(ThrustBodyZ, 0.0f);
+	}
+    else
+    {
+    	m_VehicleAttitudeSetpointMsg.Thrust = math::max(ThrustBodyZ, ThrMin);
+    }
 
 	/* Update integrals */
 	if (m_VehicleControlModeMsg.ControlVelocityEnabled && !SaturationXy)
