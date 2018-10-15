@@ -2443,8 +2443,12 @@ void MPC::CalculateVelocitySetpoint(float dt)
 		/* Limit vertical velocity to the current ramp value. */
 		m_VelocitySetpoint[2] = math::max(m_VelocitySetpoint[2], -m_TakeoffVelLimit);
 
-//        m_VelocitySetpoint[0] = 0.0f;
-//        m_VelocitySetpoint[1] = 0.0f;
+        /* Do not control XY in takeoff */
+        m_VelocitySetpoint[0] = 0.0f;
+        m_VelocitySetpoint[1] = 0.0f;
+        
+        m_PositionSetpoint[0] = NAN;
+        m_PositionSetpoint[1] = NAN;
 	}
 
 	/* Make sure velocity setpoint is constrained in all directions. */
