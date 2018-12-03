@@ -7,6 +7,7 @@ add_airliner_app_def(mpc
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_config_utils.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_events.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_msg.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_symbols.c
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_tbldefs.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_version.h
 
