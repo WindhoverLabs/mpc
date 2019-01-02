@@ -406,10 +406,7 @@ int32 MPC::RcvSchPipeMsg(int32 iBlocking)
             case MPC_WAKEUP_MID:
                 /* If vehicle local position has been received begin
                  * cyclic ops. */
-                if(receivedLocalPosition)
-                {
-                    Execute();
-                }
+                Execute();
                 break;
 
             case MPC_SEND_HK_MID:
