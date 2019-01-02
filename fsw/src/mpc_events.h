@@ -72,7 +72,7 @@ typedef enum {
 **  The fourth \c %d field contains the application revision number defined
 **      in #MPC_MISSION_REV.
 */
-	MPC_INIT_INF_EID,
+	MPC_INIT_INF_EID = 1,
 
 /** \brief <tt> 'Recvd NOOP. Version \%d.\%d.\%d.\%d' </tt>
 **  \event <tt> 'Recvd NOOP. Version \%d.\%d.\%d.\%d' </tt>
@@ -95,7 +95,7 @@ typedef enum {
 **  The fourth \c %d field contains the application revision number defined
 **      in #MPC_MISSION_REV.
 */
-	MPC_CMD_NOOP_EID,
+	MPC_CMD_NOOP_EID = 2,
 
     /** \brief <tt> '\%s Pipe failed to subscribe to \%s. (0x\%08X)' </tt>
     **  \event <tt> '\%s Pipe failed to subscribe to \%s. (0x\%08X)' </tt>
@@ -112,7 +112,7 @@ typedef enum {
 **  The 32 bit hexadecimal number is the error code returned by CFE.
 **
 */
-	MPC_SUBSCRIBE_ERR_EID,
+	MPC_SUBSCRIBE_ERR_EID = 3,
 
 /** \brief <tt> 'Failed to create \%s pipe (0x\%08X)' </tt>
 **  \event <tt> 'Failed to create \%s pipe (0x\%08X' </tt>
@@ -128,7 +128,7 @@ typedef enum {
 **  The 32 bit hexadecimal number is the error code returned by CFE.
 **
 */
-	MPC_PIPE_INIT_ERR_EID,
+	MPC_PIPE_INIT_ERR_EID = 4,
 
 /** \brief <tt> 'Failed to manage Config table (0x\%08X)' </tt>
 **  \event <tt> 'Failed to manage Config table (0x\%08X)' </tt>
@@ -141,7 +141,7 @@ typedef enum {
 **  #CFE_TBL_Manage function.
 **
 */
-	MPC_CFGTBL_MANAGE_ERR_EID,
+	MPC_CFGTBL_MANAGE_ERR_EID = 5,
 
 /** \brief <tt> 'Failed to get Config table's address (0x\%08X)' </tt>
 **  \event <tt> 'Failed to get Config table's address (0x\%08X)' </tt>
@@ -154,7 +154,7 @@ typedef enum {
 **  #CFE_TBL_GetAddress function.
 **
 */
-	MPC_CFGTBL_GETADDR_ERR_EID,
+	MPC_CFGTBL_GETADDR_ERR_EID = 6,
 
 /** \brief <tt> '\%s pipe read error (0x\%08X).' </tt>
 **  \event <tt> '\%s pipe read error (0x\%08X).' </tt>
@@ -170,7 +170,7 @@ typedef enum {
 **  The 32 bit hexadecimal number is the error code returned by CFE.
 **
 */
-	MPC_RCVMSG_ERR_EID,
+	MPC_RCVMSG_ERR_EID = 7,
 
 /** \brief <tt> 'Recvd invalid \%s msgId (0x\%04X)' </tt>
 **  \event <tt> 'Recvd invalid \%s msgId (0x\%04X)' </tt>
@@ -185,7 +185,7 @@ typedef enum {
 **  The \c %s field contains the name of the pipe.
 **  The 16 bit hexadecimal number is the actual message ID received.
 */
-	MPC_MSGID_ERR_EID,
+	MPC_MSGID_ERR_EID = 8,
 
 /** \brief <tt> 'Recvd invalid command code (\%u)' </tt>
 **  \event <tt> 'Recvd invalid command code (\%u)' </tt>
@@ -199,7 +199,7 @@ typedef enum {
 **
 **  The %u field contains the actual command code received.
 */
-	MPC_CC_ERR_EID,
+	MPC_CC_ERR_EID = 9,
 
 /** \brief <tt> 'Rcvd invalid msgLen: msgId=0x\%08X, cmdCode=\%d, msgLen=\%d, expectedLen=\%d" </tt>
 **  \event <tt> 'Rcvd invalid msgLen: msgId=0x\%08X, cmdCode=\%d, msgLen=\%d, expectedLen=\%d" </tt>
@@ -216,7 +216,7 @@ typedef enum {
 **  The third \c %d field contains the actual length.
 **  The fourth \c %d field contains the expected length.
 */
-	MPC_MSGLEN_ERR_EID,
+	MPC_MSGLEN_ERR_EID = 10,
 
 /** \brief <tt> 'Failed to register config table (0x%08X)' </tt>
 **  \event <tt> 'Failed to register config table (0x%08X)' </tt>
@@ -232,7 +232,7 @@ typedef enum {
 **  #CFE_TBL_Register function.
 **
 */
-	MPC_CFGTBL_REG_ERR_EID,
+	MPC_CFGTBL_REG_ERR_EID = 11,
 
 /** \brief <tt> 'Failed to load Config Table (0x%08X)' </tt>
 **  \event <tt> 'Failed to load Config Table (0x%08X)' </tt>
@@ -248,21 +248,76 @@ typedef enum {
 **  #CFE_TBL_Load function.
 **
 */
-	MPC_CFGTBL_LOAD_ERR_EID,
+	MPC_CFGTBL_LOAD_ERR_EID = 12,
 
-	/** \brief <tt> 'Unknown velocity offboard coordinate frame. (%u)' </tt>
-	**  \event <tt> 'Unknown velocity offboard coordinate frame. (%u)' </tt>
-	**
-	**  \par Type: ERROR
-	**
-	**  \par Cause:
-	**
-	**  This event message is issued when the software receives a current
-	**  position setpoint with an unknown velocity frame.  The actual
-	**  enumeration received is presented in parenthesis.
-	**
-	*/
-	MPC_UNK_VEL_FRM_ERR_EID,
+/** \brief <tt> 'Unknown velocity offboard coordinate frame. (%u)' </tt>
+**  \event <tt> 'Unknown velocity offboard coordinate frame. (%u)' </tt>
+**
+**  \par Type: ERROR
+**
+**  \par Cause:
+**
+**  This event message is issued when the software receives a current
+**  position setpoint with an unknown velocity frame.  The actual
+**  enumeration received is presented in parenthesis.
+**
+*/
+	MPC_UNK_VEL_FRM_ERR_EID = 13,
+
+/** \brief <tt> '' </tt>
+**  \event <tt> '' </tt>
+**
+**  \par Type: TODO
+**
+**  \par Cause:
+**
+**  This event message is issued when
+*/
+	MPC_PID_UPDATE_EID = 14,
+
+/** \brief <tt> '' </tt>
+**  \event <tt> '' </tt>
+**
+**  \par Type: TODO
+**
+**  \par Cause:
+**
+**  This event message is issued when
+*/
+	MPC_SEND_DIAG_EID = 15,
+	
+/** \brief <tt> '' </tt>
+**  \event <tt> '' </tt>
+**
+**  \par Type: TODO
+**
+**  \par Cause:
+**
+**  This event message is issued when
+*/
+	MPC_SET_DZ_EID = 16,
+
+/** \brief <tt> '' </tt>
+**  \event <tt> '' </tt>
+**
+**  \par Type: TODO
+**
+**  \par Cause:
+**
+**  This event message is issued when
+*/
+	MPC_SET_EXPO_EID = 17,
+
+/** \brief <tt> '' </tt>
+**  \event <tt> '' </tt>
+**
+**  \par Type: TODO
+**
+**  \par Cause:
+**
+**  This event message is issued when
+*/
+	MPC_SET_TKO_RAMP_EID = 18,
 
 /** \brief <tt> This is a count of all the app events and should not be used. </tt> */
 	MPC_EVT_CNT
