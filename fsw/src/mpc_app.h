@@ -65,13 +65,15 @@ extern "C" {
 /************************************************************************
  ** Local Defines
  *************************************************************************/
-enum ManualStickInput {
-	BRAKE = 0,
-	DIRECTION_CHANGE = 1,
-	ACCELERATION = 2,
-	DECELERATION = 3,
-	NONE = 4
-};
+
+
+/** \brief Pipe depth for the data pipe
+*/
+#define MPC_DATA_PIPE_DEPTH            (8)
+
+/** \brief Pipe name for the data pipe */
+#define MPC_DATA_PIPE_NAME             ("MPC_DATA_PIPE")
+
 
 
 /************************************************************************
@@ -93,6 +95,10 @@ public:
     /** \brief Command Pipe ID */
     CFE_SB_PipeId_t CmdPipeId;
 
+    /** \brief Data Pipe ID */
+    CFE_SB_PipeId_t DataPipeId;
+
+
     /* Task-related */
 
     /** \brief Task Run Status */
@@ -106,8 +112,8 @@ public:
     /** \brief Config Table Pointer */
     MPC_ConfigTbl_t* ConfigTblPtr;
 
-    /* Output Messages */
 
+    /* Output Messages */
     /** \brief Housekeeping Telemetry for downlink */
     MPC_HkTlm_t HkTlm;
 
@@ -115,92 +121,230 @@ public:
     MPC_DiagPacket_t DiagTlm;
 
     /** \brief Output Data published at the end of cycle */
-    PX4_VehicleAttitudeSetpointMsg_t m_VehicleAttitudeSetpointMsg;
+    PX4_VehicleAttitudeSetpointMsg_t      m_VehicleAttitudeSetpointMsg;
     PX4_VehicleLocalPositionSetpointMsg_t m_VehicleLocalPositionSetpointMsg;
 
     /* Input Messages */
-    PX4_ControlStateMsg_t m_ControlStateMsg;
-    PX4_ManualControlSetpointMsg_t m_ManualControlSetpointMsg;
-    PX4_HomePositionMsg_t m_HomePositionMsg;
-    PX4_VehicleControlModeMsg_t m_VehicleControlModeMsg;
-    PX4_PositionSetpointTripletMsg_t m_PositionSetpointTripletMsg;
-    PX4_VehicleStatusMsg_t m_VehicleStatusMsg;
-    PX4_VehicleLandDetectedMsg_t m_VehicleLandDetectedMsg;
-    PX4_VehicleLocalPositionMsg_t m_VehicleLocalPositionMsg;
+    PX4_ControlStateMsg_t                 m_ControlStateMsg;
+    PX4_ManualControlSetpointMsg_t        m_ManualControlSetpointMsg;
+    PX4_HomePositionMsg_t                 m_HomePositionMsg;
+    PX4_VehicleControlModeMsg_t           m_VehicleControlModeMsg;
+    PX4_PositionSetpointTripletMsg_t      m_PositionSetpointTripletMsg;
+    PX4_VehicleStatusMsg_t                m_VehicleStatusMsg;
+    PX4_VehicleLandDetectedMsg_t          m_VehicleLandDetectedMsg;
+    PX4_VehicleLocalPositionMsg_t         m_VehicleLocalPositionMsg;
 
-	/* Reset counters */
-	uint8 m_ResetCounterZ;
-	uint8 m_ResetCounterXy;
-	uint8 m_HeadingResetCounter;
 
-	/* Control variables used for altitude, position, and yaw hold */
-	math::Vector3F m_Position;
-	math::Vector3F m_PositionSetpoint;
-	math::Vector3F m_Velocity;
-	math::Vector3F m_VelocityPrevious;			/**< velocity on previous step */
-	math::Vector3F m_VelocitySetpoint;
-	math::Vector3F m_VelocitySetpointPrevious;
-	math::Vector3F m_VelocityErrD;		     /**< derivative of current velocity */
-	math::Vector3F m_CurrentPositionSetpoint;  /**< current setpoint of the triplets */
-	math::Vector3F m_PreviousPositionSetpoint;
-	math::Matrix3F3 m_RSetpoint;
-	math::Matrix3F3 m_Rotation; /**< rotation matrix from attitude quaternions */
-	math::Vector3F m_ThrustInt;
-	float m_DerivativeZ; /**< velocity in z that agrees with position rate */
-	float m_Yaw;				  /**< yaw angle (euler) */
-	float m_ManYawOffset; /**< current yaw offset in manual mode */
+    /* Reset counters */
+    /** \brief When set to a non-zero integer, m_PositionSetpoint[2] will get set to m_VehicleLocalPositionMsg.Z */
+    uint8 m_ResetCounterZ;
 
-	/* State variables */
-	boolean m_ModeAuto;
-	boolean m_PositionHoldEngaged;
-	boolean m_AltitudeHoldEngaged;
-	boolean m_RunPosControl;
-	boolean m_RunAltControl;
-	boolean m_ResetPositionSetpoint;
-	boolean m_ResetAltitudeSetpoint;
-	boolean m_DoResetAltPos;
-	boolean m_WasArmed;
-	boolean m_WasLanded;
-	boolean m_ResetIntZ;
-	boolean m_ResetIntXY;
-	boolean m_ResetIntZManual;
-	boolean m_ResetYawSetpoint;
-	boolean m_HoldOffboardXY;
-	boolean m_HoldOffboardZ;
-	boolean m_InTakeoff;	      /**< flag for smooth velocity setpoint takeoff ramp */
-	boolean m_TripletLatLonFinite;
+    /** \brief When set to a non-zero integer, m_PositionSetpoint[0] and m_PositionSetpoint[1] will get set to
+     *         m_VehicleLocalPositionMsg.X and m_VehicleLocalPositionMsg.Y respectively. */
+    uint8 m_ResetCounterXy;
 
-	/* Reference point */
-	uint64 m_RefTimestamp;
-	struct map_projection_reference_s m_RefPos;
-	float m_RefAlt;
-	boolean m_RefAltIsGlobal; /** true when the reference altitude is defined in a global reference frame */
-	float m_YawTakeoff;	      /**< home yaw angle present when vehicle was taking off (euler) */
+    /** \brief When set to a non-zero integer, m_VehicleAttitudeSetpointMsg.YawBody will get set to the Euler
+     *         yaw component of the m_ControlStateMsg.QuatResetCounter quaternion. */
+    uint8 m_HeadingResetCounter;
 
-	/* Velocity controller PIDs */
-	math::Vector3F m_PosP;
-	math::Vector3F m_VelP;
-	math::Vector3F m_VelI;
-	math::Vector3F m_VelD;
-	Derivative m_VelXDeriv;
-	Derivative m_VelYDeriv;
-	Derivative m_VelZDeriv;
 
-	/* Limit variables */
-	float m_AccelerationStateLimitXY; /**< acceleration limit applied in manual mode */
-	float m_AccelerationStateLimitZ; /**< acceleration limit applied in manual mode in z */
-	float m_ManualJerkLimitXY; /**< jerk limit in manual mode dependent on stick input */
-	float m_ManualJerkLimitZ; /**< jerk limit in manual mode in z */
-	float m_VelMaxXy;           /**< equal to vel_max except in auto mode when close to target */
-	float m_TakeoffVelLimit;    /**< velocity limit value which gets ramped up */
+    /* Control variables used for altitude, position, and yaw hold */
+    /** \brief Vehicle local position. */
+    math::Vector3F m_Position;
 
-	/* Stick input variables */
-	math::LowPassFilter2p m_FilterManualPitch;
-	math::LowPassFilter2p m_FilterManualRoll;
-	math::Vector2F m_StickInputXyPrev; /**< for manual controlled mode to detect direction change */
-	ManualStickInput m_UserIntentionXY; /**< defines what the user intends to do derived from the stick input */
-	ManualStickInput m_UserIntentionZ; /**< defines what the user intends to do derived from the stick input in z direciton */
-	systemlib::Hysteresis m_ManualDirectionChangeHysteresis;
+    /** \brief Vehicle local position setpoint. */
+    math::Vector3F m_PositionSetpoint;
+
+    /** \brief Vehicle local position velocity. */
+    math::Vector3F m_Velocity;
+
+    /** \brief Vehicle local position velocity on the previous step. */
+    math::Vector3F m_VelocityPrevious;
+
+    /** \brief Vehicle local position velocity setpoint. */
+    math::Vector3F m_VelocitySetpoint;
+
+    /** \brief Vehicle local position velocity setpoint on the previous step. */
+    math::Vector3F m_VelocitySetpointPrevious;
+
+    /** \brief Derivative of the current vehicle local position velocity. */
+    math::Vector3F m_VelocityErrD;
+
+    /** \brief Current setpoint of the triplet. */
+    math::Vector3F m_CurrentPositionSetpoint;  /**< current setpoint of the triplets */
+
+    /** \brief Previous setpoint position of the triplet. */
+    math::Vector3F m_PreviousPositionSetpoint;
+
+    /** \brief Rotation matrix setpoint used to determine the Vehicle Attitude Setpoint quaternion. */
+    math::Matrix3F3 m_RSetpoint;
+
+    /** \brief Rotation matrix from attitude in quaternions. */
+    math::Matrix3F3 m_Rotation;
+
+    /** \brief Thrust vector used to determine the Vehicle Local Position Setpoint acceleration. */
+    math::Vector3F m_ThrustInt;
+
+    /** \brief Velocity in Z that agrees with the position rate. */
+    float m_DerivativeZ;
+
+    /** \brief Yaw Euler angle. */
+    float m_Yaw;
+
+    /** \brief Current yaw offset in manual mode. */
+    float m_ManYawOffset;
+
+
+    /* State variables */
+    /** \brief Briefly set to TRUE when MPC initially enters automatic mode, causing the state machine
+     *         to execute specific behavior on state entry.  This flag is reset back to FALSE immediately
+     *         after the entry function has executed. */
+    osalbool m_ModeAuto;
+
+    /** \brief When set to TRUE, MPC will hold position, unless the pilot has applied horizontal control
+     *         stick deflections beyond the deadband.  */
+    osalbool m_PositionHoldEngaged;
+
+    /** \brief When set to TRUE, MPC will hold position, unless the pilot has applied vertical control
+     *         stick deflections beyond the deadband.  */
+    osalbool m_AltitudeHoldEngaged;
+
+    /** \brief When set to TRUE, MPC will hold position.  */
+    osalbool m_RunPosControl;
+
+    /** \brief When set to TRUE, MPC will hold altitude.  */
+    osalbool m_RunAltControl;
+
+    /** \brief When set to TRUE, MPC will set horizontal components of m_PositionSetpoint to
+     *         m_Position. */
+    osalbool m_ResetPositionSetpoint;
+
+    /** \brief When set to TRUE, MPC will set vertical components of m_PositionSetpoint to
+     *         m_Position. */
+    osalbool m_ResetAltitudeSetpoint;
+
+    /** \brief When set to TRUE, MPC will reset both the vertical and horizontal components of
+     *         m_PositionSetpoint to m_Position. */
+    osalbool m_DoResetAltPos;
+
+    /** \brief Set by the #m_VehicleLandDetectedMsg.Landed message.  Indicates the vehicle has
+     *         landed.   */
+    osalbool m_WasLanded;
+
+    /** \brief Resets thrust (vertical component) integrals to 0.0 when set to TRUE. */
+    osalbool m_ResetIntZ;
+
+    /** \brief Resets the integrals of the horizontal components to 0.0 when set to TRUE. */
+    osalbool m_ResetIntXY;
+
+    /** \brief Resets yaw setpoint to current position when set to TRUE. */
+    osalbool m_ResetYawSetpoint;
+
+    /** \brief When m_VehicleControlModeMsg.ControlOffboardEnabled is set and this is FALSE,
+     *         the horizontal component of m_PositionSetpoint is set to the horizontal
+     *         component of m_Position. */
+    osalbool m_HoldOffboardXY;
+
+    /** \brief When m_VehicleControlModeMsg.ControlOffboardEnabled is set and this is FALSE,
+     *         the vertical component of m_PositionSetpoint is set to the vertical
+     *         component of m_Position. */
+    osalbool m_HoldOffboardZ;
+
+    /** \brief Indicates that the vehicle is currently in takeoff (automatic or manual), and
+     *         applying a special velocity setpoint limitation for smooth takeoff */
+    osalbool m_InTakeoff;          /**< flag for smooth velocity setpoint takeoff ramp */
+
+    /** \brief Indicates with the latitude and longitude have been updated (are "fresh").  When
+     *         set to TRUE, sets the horizontal components of the Current Position Setpoint
+     *         equal to #m_Position. */
+    osalbool m_TripletLatLonFinite;
+
+    /** \brief Set to #m_VehicleLocalPositionMsg.RefTimestamp.  When a new Vehicle Local Position
+     *         message has been received, MPC detects the new RefTimestamp, causing it to run the
+     *         #UpdateRef function. */
+    uint64 m_RefTimestamp;
+
+    /** \brief Local projection reference. */
+    struct map_projection_reference_s m_RefPos;
+
+    /** \brief Vehicle local position reference altitude. */
+    float m_RefAlt;
+
+    /** \brief TRUE when the reference altitude is defined in a global reference frame. */
+    osalbool m_RefAltIsGlobal;
+
+    /** \brief Home yaw angle present when vehicle was taking off (euler). */
+    float m_YawTakeoff;
+
+    /* Velocity controller PIDs */
+    /** \brief Position Setpoint PID Proportional (gain) value. */
+    math::Vector3F m_PosP;
+
+    /** \brief PID Proportional (gain) value.  Used to calculate the thrust component of the
+     *         Position Setpoint. */
+    math::Vector3F m_VelP;
+
+    /** \brief PID Integral value.  Used to calculate the thrust component of the
+     *         Position Setpoint. */
+    math::Vector3F m_VelI;
+
+    /** \brief PID Differential value.  Used to calculate the thrust component of the
+     *         Position Setpoint. */
+    math::Vector3F m_VelD;
+
+    /** \brief Derivative of the velocity X component.  Used to calculate the thrust component of the
+     *         Position Setpoint. */
+    Derivative m_VelXDeriv;
+
+    /** \brief Derivative of the velocity Y component.  Used to calculate the thrust component of the
+     *         Position Setpoint. */
+    Derivative m_VelYDeriv;
+
+    /** \brief Derivative of the velocity Z component.  Used to calculate the thrust component of the
+     *         Position Setpoint. */
+    Derivative m_VelZDeriv;
+
+
+    /* Limit variables */
+    /** \brief Horizontal acceleration limit applied in manual mode. */
+    float m_AccelerationStateLimitXY;
+
+    /** \brief Vertical acceleration limit applied in manual mode. */
+    float m_AccelerationStateLimitZ;
+
+    /** \brief Horizontal jerk limit in manual mode dependent on stick input. */
+    float m_ManualJerkLimitXY;
+
+    /** \brief Vertical jerk limit in manual mode. */
+    float m_ManualJerkLimitZ;
+
+    /** \brief Equal to XY_VEL_MAX except in auto mode when close to target.  MPC will reduce this value
+     *         when close to the target in preparation for a smooth stop. */
+    float m_VelMaxXy;
+
+    /** \brief Velocity limit value which gets ramped up during takeoff. */
+    float m_TakeoffVelLimit;
+
+
+    /* Stick input variables */
+    /** \brief Manual pitch input low pass filter. */
+    math::LowPassFilter2p m_FilterManualPitch;
+
+    /** \brief Manual roll input low pass filter. */
+    math::LowPassFilter2p m_FilterManualRoll;
+
+    /** \brief The previous value of the stick input.  For manual controlled mode to detect
+     *         direction change. */
+    math::Vector2F m_StickInputXyPrev;
+
+    /** \brief Defines what the user intends to do derived from horizontal component of the stick input. */
+    ManualStickInput m_UserIntentionXY;
+
+    /** \brief Defines what the user intends to do derived from vertical component of the stick input. */
+    ManualStickInput m_UserIntentionZ;
+
+    /** \brief Used for braking. */
+    systemlib::Hysteresis m_ManualDirectionChangeHysteresis;
 
     /************************************************************************/
     /** \brief Multicopter Position Control (MPC) application entry point
@@ -319,6 +463,25 @@ public:
     int32 RcvSchPipeMsg(int32 iBlocking);
 
     /************************************************************************/
+    /** \brief Multicopter Position Control Task incoming data processing
+     **
+     **  \par Description
+     **       This function processes incoming data subscribed
+     **       by MPC application
+     **
+     **  \par Assumptions, External Events, and Notes:
+     **       None
+     **
+     **  \returns
+     **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+     **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+     **  \retstmt Boolean TRUE indicates messages were successfully received
+     **           with no errors.  \endcode
+     **  \endreturns
+     *************************************************************************/
+    osalbool ProcessDataPipe(void);
+
+    /************************************************************************/
     /** \brief Multicopter Position Control Task incoming command processing
      **
      **  \par Description
@@ -410,12 +573,17 @@ public:
      **                              references the software bus message
      **  \param [in]   usExpectedLen The expected length of the message
      **
+     **
      **  \returns
-     **  TRUE if the message length matches expectations, FALSE if it does not.
+     **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+     **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+     **  \retstmt Boolean TRUE if the message length matches expectations,
+     **           FALSE if it does not.  \endcode
      **  \endreturns
+     **  \returns
      **
      *************************************************************************/
-    boolean VerifyCmdLength(CFE_SB_Msg_t* MsgPtr, uint16 usExpectedLen);
+    osalbool VerifyCmdLength(CFE_SB_Msg_t* MsgPtr, uint16 usExpectedLen);
 
     /************************************************************************/
     /** \brief Initialize the MPC configuration tables.
@@ -468,10 +636,11 @@ public:
     void ProcessControlStateMsg(void);
 
     /************************************************************************/
-    /** \brief Process Vehicle Local Position Message
+    /** \brief Process Vehicle Local Position message
     **
     **  \par Description
-    **       This function verifies that the TODO
+    **       This function performs Position Setpoint resets, as directed by
+    **       the #VehicleLocalPositionMsg message.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -480,10 +649,11 @@ public:
     void ProcessVehicleLocalPositionMsg(void);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Process Position Setpoint Triplet message
     **
     **  \par Description
-    **       This function
+    **       This function determines if the setpoint positions are valid and
+    **       sets the Valid flag to FALSE when they are invalid.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -492,10 +662,12 @@ public:
     void ProcessPositionSetpointTripletMsg(void);
 
     /************************************************************************/
-    /** \brief
+    /** \brief The main cyclic Execution function.
     **
     **  \par Description
-    **       This function
+    **       This is the function called in the main cyclic loop of the MPC
+    **       application.  This is triggered by the #MPC_WAKEUP_MID function
+    **       and performs the bulk of the MPC functionality.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -504,10 +676,10 @@ public:
     void Execute(void);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Update the reference position
     **
     **  \par Description
-    **       This function
+    **       This function updates the reference position.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -516,10 +688,11 @@ public:
     void UpdateRef(void);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Update velocity derivative.
     **
     **  \par Description
-    **       This function
+    **       This function updates the velocity and the velocity derivative
+    **       independent of the current flight mode.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -528,10 +701,11 @@ public:
     void UpdateVelocityDerivative(float dt);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Execute the control functions.
     **
     **  \par Description
-    **       This function
+    **       This function either executes the #ControlManual or the
+    **       #ControlNonManual function, depending on the current flight mode.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -540,10 +714,11 @@ public:
     void DoControl(float dt);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Generate attitude setpoint
     **
     **  \par Description
-    **       This function
+    **       This function generates the #m_VehicleAttitudeSetpointMsg
+    **       message.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -552,10 +727,11 @@ public:
     void GenerateAttitudeSetpoint(float dt);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Control Manual
     **
     **  \par Description
-    **       This function
+    **       This function performs the tasks required to control manual
+    **       flight.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -564,10 +740,11 @@ public:
     void ControlManual(float dt);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Control Non-Manual
     **
     **  \par Description
-    **       This function
+    **       This function performs the tasks required to control non-manual
+    **       (automatic) flight.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -576,22 +753,28 @@ public:
     void ControlNonManual(float dt);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Throttle Curve
     **
     **  \par Description
-    **       This function
+    **       This function maps #m_ManualControlSetpointMsg.Z (throttle) to
+    **       0.0 to 1.0, with 0.5 mapping to the hover throttle.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
+    **
+    **  \returns
+    **  The mapped throttle value
+    **  \endreturns
     **
     *************************************************************************/
     float ThrottleCurve(float ctl, float ctr);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Reset Altitude Setpoint
     **
     **  \par Description
-    **       This function
+    **       When #m_ResetAltitudeSetpoint is set to TRUE, this function will
+    **       reset #m_PositionSetpoint[2] (altitude) to #m_Position[2].
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -600,10 +783,12 @@ public:
     void ResetAltSetpoint(void);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Reset Position Setpoint
     **
     **  \par Description
-    **       This function
+    **       When m_ResetPositionSetpoint is set to TRUE, this function will
+    **       reset the horizontal compoments of #m_PositionSetpoint to
+    **       #m_Position.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -612,10 +797,15 @@ public:
     void ResetPosSetpoint(void);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Control Position
     **
     **  \par Description
-    **       This function
+    **       If #m_VehicleControlModeMsg.ControlClimbRateEnabled,
+    **       #m_VehicleControlModeMsg.ControlVelocityEnabled, or
+    **       #m_VehicleControlModeMsg.ControlAccelerationEnabled are set to
+    **       TRUE, this function will call the #CalculateThrustSetpoint
+    **       function.  Otherwise, this will set #m_ResetIntZ to TRUE and
+    **       reset the thrust integral to to 0.0.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -624,10 +814,14 @@ public:
     void ControlPosition(float dt);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Control Offboard
     **
     **  \par Description
-    **       This function
+    **       This function is called when
+    **       #m_VehicleControlModeMsg.ControlOffboardEnabled is set to TRUE,
+    **       allowing the vehicle to be controlled by
+    **       #m_PositionSetpointTripletMsg received from an external source.
+    **
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -636,10 +830,11 @@ public:
     void ControlOffboard(float dt);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Control Auto
     **
     **  \par Description
-    **       This function
+    **       This function performs all tasks required for MPC provided
+    **       automatic control.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -648,10 +843,10 @@ public:
     void ControlAuto(float dt);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Calculate Velocity Setpoint
     **
     **  \par Description
-    **       This function
+    **       This function calculates the #m_VelocitySetpoint vector.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -660,10 +855,11 @@ public:
     void CalculateVelocitySetpoint(float dt);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Calculate Thrust Setpoint
     **
     **  \par Description
-    **       This function
+    **       This function calculates the ThrustSp vector and generates the
+    **       #m_VehicleAttitudeSetpointMsg message.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -672,35 +868,29 @@ public:
     void CalculateThrustSetpoint(float dt);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Get horizontal cruising speed.
     **
     **  \par Description
-    **       This function
+    **       This function returns the horizontal cruising speed, from
+    **       either #m_PositionSetpointTripletMsg.Current.CruisingSpeed when
+    **       greater than 0, or from the #XY_CRUISE configuration parameter.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
+    **
+    **  \returns
+    **  The horizontal cruising speed.
+    **  \endreturns
     **
     *************************************************************************/
     float GetCruisingSpeedXY(void);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Update internal parameters from table.
     **
     **  \par Description
-    **       This function
-    **
-    **  \par Assumptions, External Events, and Notes:
-    **       None
-    **
-    *************************************************************************/
-    boolean CrossSphereLine(const math::Vector3F &sphere_c, const float sphere_r,
-			const math::Vector3F &line_a, const math::Vector3F &line_b, math::Vector3F &res);
-
-    /************************************************************************/
-    /** \brief
-    **
-    **  \par Description
-    **       This function
+    **       This function function will update some internal parameters
+    **       from the newly loaded CFE table.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -709,10 +899,12 @@ public:
     void UpdateParamsFromTable(void);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Apply an altitude limit
     **
     **  \par Description
-    **       This function
+    **       This function applies an altitude limit, when present.  The
+    **       altitude limit is defined in the #m_VehicleLandDetectedMsg.AltMax
+    **       message.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
@@ -721,94 +913,182 @@ public:
     void LimitAltitude(void);
 
     /************************************************************************/
-    /** \brief
+    /** \brief In Auto Takeoff
     **
     **  \par Description
-    **       This function
+    **       This function returns TRUE if we are in an auto takeoff mode.
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates vehicle is in auto takeoff
+    **           mode  \endcode
+    **  \endreturns
+    **
+    *************************************************************************/
+    osalbool InAutoTakeoff(void);
+
+    /************************************************************************/
+    /** \brief Apply Velocity Setpoint Slew Rate
+    **
+    **  \par Description
+    **       This function applies a slew rate to reach the target velocity
+    **       setpoint.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
     **
     *************************************************************************/
-    void SlowLandGradualVelocityLimit(void);
+    void ApplyVelocitySetpointSlewRate(float dt);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Get velocity close
     **
     **  \par Description
-    **       This function
+    **       Get velocity close to current that depends on angle between
+    **       prev-current and current-next line.
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \returns
+    **  Close velocity
+    **  \endreturns
+    **
+    *************************************************************************/
+    float GetVelClose(const math::Vector2F &UnitPrevToCurrent, const math::Vector2F &UnitCurrentToNext);
+
+    /************************************************************************/
+    /** \brief Set manual vertical acceleration
+    **
+    **  \par Description
+    **       In manual altitude control, set the vertical acceleration based
+    **       on whether the user is accelerating or braking.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
     **
     *************************************************************************/
-    boolean InAutoTakeoff(void);
+    void SetManualAccelerationZ(float &max_acceleration, const float stick_z, const float dt);
 
-    /*
-	 * Limit vel horizontally when close to target
-	 */
     /************************************************************************/
-    /** \brief
+    /** \brief Set manual horizontal acceleration
     **
     **  \par Description
-    **       This function
+    **       In manual altitude control, set the horizontal acceleration based
+    **       on whether the user is accelerating or braking.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
     **
     *************************************************************************/
-	void LimitVelXYGradually(void);
+    void SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Pilot is commanding a manual takeoff
     **
     **  \par Description
-    **       This function
+    **       This function returns true if the manual control setpoint Z
+    **       (throttle) is greater than 65%.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates pilot is commanding a manual
+    **           takeoff  \endcode
+    **  \endreturns
     **
     *************************************************************************/
-	void ApplyVelocitySetpointSlewRate(float dt);
+    osalbool ManualWantsTakeoff(void);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Update XY PIDs.
     **
     **  \par Description
-    **       This function
+    **       This function updates the horizontal (XY) position and velocity
+    **       PIDs, both member functions and configuration table.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the command was valid and the change
+    **           was successful. \endcode
+    **  \endreturns
     **
     *************************************************************************/
-	float GetVelClose(const math::Vector2F &UnitPrevToCurrent, const math::Vector2F &UnitCurrentToNext);
+    osalbool UpdateXyPids(MPC_SetPidCmd_t* PidMsg);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Update Z PIDs.
     **
     **  \par Description
-    **       This function
+    **       This function updates the vertical (Z) position and velocity
+    **       PIDs, both member functions and configuration table.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the command was valid and the change
+    **           was successful. \endcode
+    **  \endreturns
     **
     *************************************************************************/
-	void SetManualAccelerationZ(float &max_acceleration, const float stick_z, const float dt);
+    osalbool UpdateZPids(MPC_SetPidCmd_t* PidMsg);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Update the hold dead zone (HOLD_DZ)
     **
     **  \par Description
-    **       This function
+    **       This function updates the hold dead zone (HOLD_DZ) in the
+    **       configuration table.
     **
     **  \par Assumptions, External Events, and Notes:
     **       None
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the command was valid and the change
+    **           was successful. \endcode
+    **  \endreturns
     **
     *************************************************************************/
-	void SetManualAccelerationXY(math::Vector2F &stick_xy, const float dt);
+    osalbool UpdateHoldDz(MPC_SetDzCmd_t* DzMsg);
 
     /************************************************************************/
-    /** \brief
+    /** \brief Set manual stick EXPO (XY_MAN_EXPO and Z_MAN_EXPO)
+    **
+    **  \par Description
+    **       This function sets the #XY_MAN_EXPO and #Z_MAN_EXPO parameters
+    **       in the configuration table.
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the command was valid and the change
+    **           was successful. \endcode
+    **  \endreturns
+    **
+    *************************************************************************/    
+    osalbool UpdateStickExpo(MPC_SetStickExpoCmd_t* ExpoMsg);
+
+    /************************************************************************/
+    /** \brief Update the takeoff ramp time (TKO_RAMP_T)
     **
     **  \par Description
     **       This function
@@ -816,68 +1096,15 @@ public:
     **  \par Assumptions, External Events, and Notes:
     **       None
     **
-    *************************************************************************/
-	boolean ManualWantsTakeoff(void);
-
-    /************************************************************************/
-    /** \brief
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the command was valid and the change
+    **           was successful. \endcode
+    **  \endreturns
     **
-    **  \par Description
-    **       This function
-    **
-    **  \par Assumptions, External Events, and Notes:
-    **       None
-    **
-    *************************************************************************/
-	void UpdateXyPids(MPC_SetPidCmd_t* PidMsg);
-
-    /************************************************************************/
-    /** \brief
-    **
-    **  \par Description
-    **       This function
-    **
-    **  \par Assumptions, External Events, and Notes:
-    **       None
-    **
-    *************************************************************************/
-	void UpdateZPids(MPC_SetPidCmd_t* PidMsg);
-
-    /************************************************************************/
-    /** \brief
-    **
-    **  \par Description
-    **       This function
-    **
-    **  \par Assumptions, External Events, and Notes:
-    **       None
-    **
-    *************************************************************************/
-	void UpdateHoldDz(MPC_SetDzCmd_t* DzMsg);
-
-    /************************************************************************/
-    /** \brief
-    **
-    **  \par Description
-    **       This function
-    **
-    **  \par Assumptions, External Events, and Notes:
-    **       None
-    **
-    *************************************************************************/	
-	void UpdateStickExpo(MPC_SetStickExpoCmd_t* ExpoMsg);
-
-    /************************************************************************/
-    /** \brief
-    **
-    **  \par Description
-    **       This function
-    **
-    **  \par Assumptions, External Events, and Notes:
-    **       None
-    **
-    *************************************************************************/	
-	void UpdateTakeoffTampTime(MPC_SetTkoRampCmd_t* TkoRampMsg);
+    *************************************************************************/    
+    osalbool UpdateTakeoffRampTime(MPC_SetTkoRampCmd_t* TkoRampMsg);
 
     /************************************************************************/
     /** \brief Validate MPC configuration table
@@ -896,6 +1123,247 @@ public:
     **
     *************************************************************************/
     static int32  ValidateConfigTbl(void*);
+
+    /************************************************************************/
+    /** \brief Validate the XY_P parameter.
+    **
+    **  \par Description
+    **       This function validates the XY_P parameter
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \param [in]   value    The value to be validated.
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the value passed is valid. \endcode
+    **  \endreturns
+    **
+    *************************************************************************/
+    static osalbool Validate_XY_P(float value);
+
+    /************************************************************************/
+    /** \brief Validate the XY_VEL_P parameter.
+    **
+    **  \par Description
+    **       This function validates the XY_VEL_P parameter
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \param [in]   value    The value to be validated.
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the value passed is valid. \endcode
+    **  \endreturns
+    **
+    *************************************************************************/
+    static osalbool Validate_XY_VEL_P(float value);
+
+    /************************************************************************/
+    /** \brief Validate the XY_VEL_I parameter.
+    **
+    **  \par Description
+    **       This function validates the XY_VEL_I parameter
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \param [in]   value    The value to be validated.
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the value passed is valid. \endcode
+    **  \endreturns
+    **
+    *************************************************************************/
+    static osalbool Validate_XY_VEL_I(float value);
+
+    /************************************************************************/
+    /** \brief Validate the XY_VEL_D parameter.
+    **
+    **  \par Description
+    **       This function validates the XY_VEL_D parameter
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \param [in]   value    The value to be validated.
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the value passed is valid. \endcode
+    **  \endreturns
+    **
+    *************************************************************************/
+    static osalbool Validate_XY_VEL_D(float value);
+
+    /************************************************************************/
+    /** \brief Validate the Z_P parameter.
+    **
+    **  \par Description
+    **       This function validates the Z_P parameter
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \param [in]   value    The value to be validated.
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the value passed is valid. \endcode
+    **  \endreturns
+    **
+    *************************************************************************/
+    static osalbool Validate_Z_P(float value);
+
+    /************************************************************************/
+    /** \brief Validate the Z_VEL_P parameter.
+    **
+    **  \par Description
+    **       This function validates the Z_VEL_P parameter
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \param [in]   value    The value to be validated.
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the value passed is valid. \endcode
+    **  \endreturns
+    **
+    *************************************************************************/
+    static osalbool Validate_Z_VEL_P(float value);
+
+    /************************************************************************/
+    /** \brief Validate the Z_VEL_I parameter.
+    **
+    **  \par Description
+    **       This function validates the Z_VEL_I parameter
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \param [in]   value    The value to be validated.
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the value passed is valid. \endcode
+    **  \endreturns
+    **
+    *************************************************************************/
+    static osalbool Validate_Z_VEL_I(float value);
+
+    /************************************************************************/
+    /** \brief Validate the Z_VEL_D parameter.
+    **
+    **  \par Description
+    **       This function validates the Z_VEL_D parameter
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \param [in]   value    The value to be validated.
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the value passed is valid. \endcode
+    **  \endreturns
+    **
+    *************************************************************************/
+    static osalbool Validate_Z_VEL_D(float value);
+
+    /************************************************************************/
+    /** \brief Validate the HOLD_DZ parameter.
+    **
+    **  \par Description
+    **       This function validates the HOLD_DZ parameter
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \param [in]   value    The value to be validated.
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the value passed is valid. \endcode
+    **  \endreturns
+    **
+    *************************************************************************/
+    static osalbool Validate_HOLD_DZ(float value);
+
+    /************************************************************************/
+    /** \brief Validate the XY_MAN_EXPO parameter.
+    **
+    **  \par Description
+    **       This function validates the XY_MAN_EXPO parameter
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \param [in]   value    The value to be validated.
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the value passed is valid. \endcode
+    **  \endreturns
+    **
+    *************************************************************************/
+    static osalbool Validate_XY_MAN_EXPO(float value);
+
+    /************************************************************************/
+    /** \brief Validate the Z_MAN_EXPO parameter.
+    **
+    **  \par Description
+    **       This function validates the Z_MAN_EXPO parameter
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       None
+    **
+    **  \param [in]   value    The value to be validated.
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the value passed is valid. \endcode
+    **  \endreturns
+    **
+    *************************************************************************/
+    static osalbool Validate_Z_MAN_EXPO(float value);
+
+    /************************************************************************/
+    /** \brief Validate the TKO_RAMP_T parameter.
+    **
+    **  \par Description
+    **       This function validates the TKO_RAMP_T parameter
+    **
+    **  \par Assumptions, External Events, and Notes:
+    **       The #MPC_INVLD_PARAM_ERR_EID error event message will be
+    **         sent if the function fails validation.
+    **
+    **  \param [in]   value    The value to be validated.
+    **
+    **  \returns
+    **  \retcode #TRUE   \retdesc \copydoc TRUE    \endcode
+    **  \retcode #FALSE  \retdesc \copydoc FALSE   \endcode
+    **  \retstmt Boolean TRUE indicates the value passed is valid. \endcode
+    **  \endreturns
+    **
+    *************************************************************************/
+    static osalbool Validate_TKO_RAMP_T(float value);
 };
 
 #ifdef __cplusplus

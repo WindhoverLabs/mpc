@@ -43,8 +43,8 @@ Ut_MPC_Custom_ReturnCodeTable_t     Ut_MPC_Custom_ReturnCodeTable[UT_MPC_CUSTOM_
 
 void Ut_MPC_Custom_Reset(void)
 {
-    memset(&Ut_MPC_Custom_HookTable, 0, sizeof(Ut_MPC_Custom_HookTable));
-    memset(&Ut_MPC_Custom_ReturnCodeTable, 0, sizeof(Ut_MPC_Custom_ReturnCodeTable));
+    CFE_PSP_MemSet(&Ut_MPC_Custom_HookTable, 0, sizeof(Ut_MPC_Custom_HookTable));
+    CFE_PSP_MemSet(&Ut_MPC_Custom_ReturnCodeTable, 0, sizeof(Ut_MPC_Custom_ReturnCodeTable));
 }
 
 void Ut_MPC_Custom_SetFunctionHook(uint32 Index, void *FunPtr)
@@ -71,7 +71,7 @@ void Ut_MPC_Custom_SetReturnCode(uint32 Index, int32 RtnVal, uint32 CallCnt)
     }
 }
 
-boolean Ut_MPC_Custom_UseReturnCode(uint32 Index)
+osalbool Ut_MPC_Custom_UseReturnCode(uint32 Index)
 {
     if (Ut_MPC_Custom_ReturnCodeTable[Index].Count > 0)
     {

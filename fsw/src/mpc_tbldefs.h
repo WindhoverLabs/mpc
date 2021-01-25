@@ -52,6 +52,104 @@ extern "C" {
 ** Local Defines
 *************************************************************************/
 
+#define THR_MIN_MIN          (0.05)
+#define THR_MIN_MAX          (1.0)
+#define THR_HOVER_MIN        (0.2)
+#define THR_HOVER_MAX        (0.8)
+#define THR_MAX_MIN          (0.0)
+#define THR_MAX_MAX          (0.95)
+#define MANTHR_MIN_MIN       (0.0)
+#define MANTHR_MIN_MAX       (1.0)
+#define MANTHR_MAX_MIN       (0.0)
+#define MANTHR_MAX_MAX       (1.0)
+#define Z_P_MIN              (0.0)
+#define Z_P_MAX              (1.5)
+#define Z_VEL_P_MIN          (0.1)
+#define Z_VEL_P_MAX          (0.4)
+#define Z_VEL_I_MIN          (0.01)
+#define Z_VEL_I_MAX          (0.1)
+#define Z_VEL_D_MIN          (0.0)
+#define Z_VEL_D_MAX          (0.1)
+#define Z_VEL_MAX_UP_MIN     (0.5)
+#define Z_VEL_MAX_UP_MAX     (8.0)
+#define Z_VEL_MAX_DN_MIN     (0.5)
+#define Z_VEL_MAX_DN_MAX     (4.0)
+#define Z_FF_MIN             (0.0)
+#define Z_FF_MAX             (1.0)
+#define XY_P_MIN             (0.0)
+#define XY_P_MAX             (2.0)
+#define XY_VEL_P_MIN         (0.06)
+#define XY_VEL_P_MAX         (0.15)
+#define XY_VEL_I_MIN         (0.0)
+#define XY_VEL_I_MAX         (0.1)
+#define XY_VEL_D_MIN         (0.005)
+#define XY_VEL_D_MAX         (0.1)
+#define XY_CRUISE_MIN        (3.0)
+#define XY_CRUISE_MAX        (20.0)
+#define TARGET_THRE_MIN      (1.0)
+#define TARGET_THRE_MAX      (50.0)
+#define XY_VEL_MAX_MIN       (0.0)
+#define XY_VEL_MAX_MAX       (20.0)
+#define XY_FF_MIN            (0.0)
+#define XY_FF_MAX            (1.0)
+#define TILTMAX_AIR_MIN      (0.0)
+#define TILTMAX_AIR_MAX      (3.1415926 / 2.0)
+#define TILTMAX_LND_MIN      (0.0)
+#define TILTMAX_LND_MAX      (3.1415926 / 2.0)
+#define LAND_SPEED_MIN       (0.2)
+#define LAND_SPEED_MAX       (122.0)
+#define TKO_SPEED_MIN        (1.0)
+#define TKO_SPEED_MAX        (5.0)
+#define MAN_TILT_MAX_MIN     (0.0)
+#define MAN_TILT_MAX_MAX     (90.0)
+#define MAN_Y_MAX_MIN        (0.0)
+#define MAN_Y_MAX_MAX        (400.0)
+#define HOLD_DZ_MIN          (0.0)
+#define HOLD_DZ_MAX          (1.0)
+#define HOLD_MAX_XY_MIN      (0.0)
+#define HOLD_MAX_XY_MAX      (3.0)
+#define HOLD_MAX_Z_MIN       (0.0)
+#define HOLD_MAX_Z_MAX       (3.0)
+#define VELD_LP_MIN          (0.0)
+#define VELD_LP_MAX          (10.0)
+#define ACC_HOR_MAX_MIN      (2.0)
+#define ACC_HOR_MAX_MAX      (15.0)
+#define ACC_UP_MAX_MIN       (2.0)
+#define ACC_UP_MAX_MAX       (15.0)
+#define ACC_DOWN_MAX_MIN     (2.0)
+#define ACC_DOWN_MAX_MAX     (15.0)
+#define ALT_MODE_MIN         (0)
+#define ALT_MODE_MAX         (1)
+#define XY_MAN_EXPO_MIN      (0.0)
+#define XY_MAN_EXPO_MAX      (1.0)
+#define Z_MAN_EXPO_MIN       (0.0)
+#define Z_MAN_EXPO_MAX       (1.0)
+#define LAND_ALT1_MIN        (0)
+#define LAND_ALT1_MAX        (122)
+#define LAND_ALT2_MIN        (0)
+#define LAND_ALT2_MAX        (122)
+#define TKO_RAMP_T_MIN       (0.1)
+#define TKO_RAMP_T_MAX       (1.0)
+#define MC_YAWRATE_MAX_MIN   (0.0)
+#define MC_YAWRATE_MAX_MAX   (1800.0)
+#define MC_YAW_P_MIN         (0.0)
+#define MC_YAW_P_MAX         (5.0)
+#define MPC_CRUISE_90_MIN    (1.0)
+#define MPC_CRUISE_90_MAX    (20.0)
+#define MPC_JERK_MAX_MIN     (0.0)
+#define MPC_JERK_MAX_MAX     (15.0)
+#define MPC_JERK_MIN_MIN     (0.5)
+#define MPC_JERK_MIN_MAX     (10.0)
+#define MPC_DEC_HOR_SLOW_MIN (0.5)
+#define MPC_DEC_HOR_SLOW_MAX (10.0)
+#define MPC_VEL_MANUAL_MIN   (3.0)
+#define MPC_VEL_MANUAL_MAX   (20.0)
+#define NAV_ACC_RAD_MIN      (0.05)
+#define NAV_ACC_RAD_MAX      (200.0)
+#define NAV_MIS_YAW_ERR_MIN  (0.0)
+#define NAV_MIS_YAW_ERR_MAX  (90.0)
+
+
 /**
  * \brief Defines the table identification name used for the
  * configuration table registration.
@@ -62,590 +160,486 @@ extern "C" {
 /** \brief Definition for a single config table entry */
 typedef struct
 {
-	/**
-	 * Minimum thrust in auto thrust control
-	 *
-	 * It's recommended to set it > 0 to avoid free fall with zero thrust.
-	 *
-	 * @unit norm
-	 * @min 0.05
-	 * @max 1.0
-	 * @decimal 2
-	 * @increment 0.01
-	 * @group Multicopter Position Control
-	 */
+    /** \brief Minimum thrust in auto thrust control.
+     *
+     *  \par It's recommended to set it > 0 to avoid free fall with zero thrust.
+     *
+     *  \par Limits:
+     *       Min > Max (incr.) #THR_MIN_MIN > #THR_MIN_MAX, default 0.2.
+     */
     float THR_MIN;
 
-    /**
-     * Hover thrust
+    /** \brief Hover thrust.
      *
-     * Vertical thrust required to hover.
-     * This value is mapped to center stick for manual throttle control.
-     * With this value set to the thrust required to hover, transition
-     * from manual to ALTCTL mode while hovering will occur with the
-     * throttle stick near center, which is then interpreted as (near)
-     * zero demand for vertical speed.
+     *  \par Vertical thrust required to hover.  This value is mapped to center
+     *       stick for manual throttle control.  With this value set to the
+     *       thrust required to hover, transition from manual to ALTCTL mode
+     *       while hovering will occur with the throttle stick near center,
+     *       which is then interpreted as (near) zero demand for vertical
+     *       speed.
      *
-     * @unit norm
-     * @min 0.2
-     * @max 0.8
-     * @decimal 2
-     * @increment 0.01
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #THR_HOVER_MIN > #THR_HOVER_MAX, default 0.2.
      */
     float THR_HOVER;
 
-    /**
-     * Maximum thrust in auto thrust control
+    /** \brief Maximum thrust in auto thrust control.
      *
-     * Limit max allowed thrust. Setting a value of one can put
-     * the system into actuator saturation as no spread between
-     * the motors is possible any more. A value of 0.8 - 0.9
-     * is recommended.
+     *  \par Limit max allowed thrust. Setting a value of one can put
+     *       the system into actuator saturation as no spread between
+     *       the motors is possible any more. A value of 0.8 - 0.9
+     *       is recommended.
      *
-     * @unit norm
-     * @min 0.0
-     * @max 0.95
-     * @decimal 2
-     * @increment 0.01
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #THR_MAX_MIN > #THR_MAX_MAX.
      */
     float THR_MAX;
 
-    /**
-     * Minimum manual thrust
+    /** \brief Minimum manual thrust.
      *
-     * Minimum vertical thrust. It's recommended to set it > 0 to avoid free fall with zero thrust.
+     *  \par Minimum vertical thrust. It's recommended to set it > 0 to avoid
+     *       free fall with zero thrust.
      *
-     * @unit norm
-     * @min 0.0
-     * @max 1.0
-     * @decimal 2
-     * @increment 0.01
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #MANTHR_MIN_MIN > #MANTHR_MIN_MAX.
      */
     float MANTHR_MIN;
 
-    /**
-     * Maximum manual thrust
+    /** \brief Maximum manual thrust.
      *
-     * Limit max allowed thrust. Setting a value of one can put
-     * the system into actuator saturation as no spread between
-     * the motors is possible any more. A value of 0.8 - 0.9
-     * is recommended.
+     *  \par Limit max allowed thrust. Setting a value of one can put
+     *       the system into actuator saturation as no spread between
+     *       the motors is possible any more. A value of 0.8 - 0.9
+     *       is recommended.
      *
-     * @unit norm
-     * @min 0.0
-     * @max 1.0
-     * @decimal 2
-     * @increment 0.01
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #MANTHR_MAX_MIN > #MANTHR_MAX_MAX.
      */
     float MANTHR_MAX;
 
-    /**
-     * Proportional gain for vertical position error
+    /** \brief Proportional gain for vertical position error
      *
-     * @min 0.0
-     * @max 1.5
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #Z_P_MIN > #Z_P_MAX.
      */
     float Z_P;
 
-    /**
-     * Proportional gain for vertical velocity error
+    /** \brief Proportional gain for vertical velocity error
      *
-     * @min 0.1
-     * @max 0.4
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #Z_VEL_P_MIN > #Z_VEL_P_MAX.
      */
     float Z_VEL_P;
 
-    /**
-     * Integral gain for vertical velocity error
+    /** \brief Integral gain for vertical velocity error
      *
-     * Non zero value allows hovering thrust estimation on stabilized or autonomous takeoff.
+     *  \par Non zero value allows hovering thrust estimation on stabilized or
+     *       autonomous takeoff.
      *
-     * @min 0.01
-     * @max 0.1
-     * @decimal 3
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #Z_VEL_I_MIN > #Z_VEL_I_MAX.
      */
     float Z_VEL_I;
 
-    /**
-     * Differential gain for vertical velocity error
+    /** \brief Differential gain for vertical velocity error.
      *
-     * @min 0.0
-     * @max 0.1
-     * @decimal 3
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #Z_VEL_D_MIN > #Z_VEL_D_MAX.
      */
     float Z_VEL_D;
 
-    /**
-     * Maximum vertical ascent velocity
+    /** \brief Maximum vertical ascent velocity
      *
-     * Maximum vertical velocity in AUTO mode and endpoint for stabilized modes (ALTCTRL, POSCTRL).
+     *  \par Maximum vertical velocity in AUTO mode and endpoint for
+     *       stabilized modes (ALTCTRL, POSCTRL).
      *
-     * @unit m/s
-     * @min 0.5
-     * @max 8.0
-     * @decimal 1
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #Z_VEL_D_MIN > #Z_VEL_D_MAX.
+     *
+     *  \par Units: m/s
      */
     float Z_VEL_MAX_UP;
 
-    /**
-     * Maximum vertical descent velocity
+    /** \brief Maximum vertical descent velocity
      *
-     * Maximum vertical velocity in AUTO mode and endpoint for stabilized modes (ALTCTRL, POSCTRL).
+     *  \par Maximum vertical velocity in AUTO mode and endpoint for
+     *       stabilized modes (ALTCTRL, POSCTRL).
      *
-     * @unit m/s
-     * @min 0.5
-     * @max 4.0
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #Z_VEL_MAX_DN_MIN > #Z_VEL_MAX_DN_MAX.
+     *
+     *  \par Units: m/s
      */
     float Z_VEL_MAX_DN;
 
-    /**
-     * Vertical velocity feed forward
+    /** \brief Vertical velocity feed forward
      *
-     * Feed forward weight for altitude control in stabilized modes (ALTCTRL, POSCTRL). 0 will give slow responce and no overshot, 1 - fast responce and big overshot.
+     *  \par Feed forward weight for altitude control in stabilized modes
+     *       (ALTCTRL, POSCTRL). 0 will give slow response and no overshot,
+     *       1 - fast response and big overshot.
      *
-     * @min 0.0
-     * @max 1.0
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #Z_FF_MIN > #Z_FF_MAX.
      */
     float Z_FF;
 
-    /**
-     * Proportional gain for horizontal position error
+    /** \brief Proportional gain for horizontal position error.
      *
-     * @min 0.0
-     * @max 2.0
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #XY_P_MIN > #XY_P_MAX.
      */
     float XY_P;
 
-    /**
-     * Proportional gain for horizontal velocity error
+    /** \brief Proportional gain for horizontal velocity error.
      *
-     * @min 0.06
-     * @max 0.15
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #XY_VEL_P_MIN > #XY_VEL_P_MAX.
      */
     float XY_VEL_P;
 
-    /**
-     * Integral gain for horizontal velocity error
+    /** \brief Non-zero value allows to resist wind.
      *
-     * Non-zero value allows to resist wind.
-     *
-     * @min 0.0
-     * @max 0.1
-     * @decimal 3
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #XY_VEL_I_MIN > #XY_VEL_I_MAX.
      */
     float XY_VEL_I;
 
-    /**
-     * Differential gain for horizontal velocity error. Small values help reduce fast oscillations. If value is too big oscillations will appear again.
+    /** \brief Differential gain for horizontal velocity error. Small values
+     *         help reduce fast oscillations. If value is too big
+     *         oscillations will appear again.
      *
-     * @min 0.005
-     * @max 0.1
-     * @decimal 3
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #XY_VEL_D_MIN > #XY_VEL_D_MAX.
      */
     float XY_VEL_D;
 
-    /**
-     * Nominal horizontal velocity in mission
+    /** \brief Nominal horizontal velocity in mission.
      *
-     * Normal horizontal velocity in AUTO modes (includes
-     * also RTL / hold / etc.) and endpoint for
-     * position stabilized mode (POSCTRL).
+     *  \par Limits:
+     *       Min > Max (incr.) #XY_CRUISE_MIN > #XY_CRUISE_MAX.
      *
-     * @unit m/s
-     * @min 3.0
-     * @max 20.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Units:  m/s
      */
     float XY_CRUISE;
 
-    /**
-     * Distance Threshold Horizontal Auto
+    /** \brief Distance Threshold Horizontal Auto
      *
-     * The distance defines at which point the vehicle
-     * has to slow down to reach target if no direct
-     * passing to the next target is desired
+     *  \par The distance defines at which point the vehicle
+     *       has to slow down to reach target if no direct
+     *       passing to the next target is desired.
      *
-     * @unit m
-     * @min 1.0
-     * @max 50.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #TARGET_THRE_MIN > #TARGET_THRE_MAX.
+     *
+     *  \par Units:  m
      */
     float TARGET_THRE;
 
-    /**
-     * Maximum horizontal velocity
+    /** \brief Maximum horizontal velocity
      *
-     * Maximum horizontal velocity in AUTO mode. If higher speeds
-     * are commanded in a mission they will be capped to this velocity.
+     *  \par Maximum horizontal velocity in AUTO mode. If higher speeds
+     *       are commanded in a mission they will be capped to this velocity.
      *
-     * @unit m/s
-     * @min 0.0
-     * @max 20.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #XY_VEL_MIN > #XY_VEL_MAX.
+     *
+     *  \par Units:  m/s
      */
     float XY_VEL_MAX;
 
-    /**
-     * Horizontal velocity feed forward
+    /** \brief Horizontal velocity feed forward
      *
-     * Feed forward weight for position control in position control mode (POSCTRL). 0 will give slow responce and no overshot, 1 - fast responce and big overshot.
+     *  \par Feed forward weight for position control in position control mode (POSCTRL).
+     *       0 will give slow response and no overshot, 1 - fast response and big overshot.
      *
-     * @min 0.0
-     * @max 1.0
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #XY_FF_MIN > #XY_FF_MAX.
      */
     float XY_FF;
 
-    /**
-     * Maximum tilt angle in air
+    /** \brief Maximum tilt angle in air.
      *
-     * Limits maximum tilt in AUTO and POSCTRL modes during flight.
+     *  \par Limits maximum tilt in AUTO and POSCTRL modes during flight.
      *
-     * @unit radians
-     * @min 0.0
-     * @max pi/2 (1.5708)
-     * @decimal 1
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #TILTMAX_AIR_MIN > #TILTMAX_AIR_MAX.
+     *
+     *  \par Units: radians
      */
     float TILTMAX_AIR;
 
-    /**
-     * Maximum tilt during landing
+    /** \brief Maximum tilt angle during landing.
      *
-     * Limits maximum tilt angle on landing.
+     *  \par Limits maximum tilt angle on landing.
      *
-     * @unit radians
-     * @min 0.0
-     * @max pi/2 (1.5708)
-     * @decimal 1
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #TILTMAX_LND_MIN > #TILTMAX_LND_MAX.
+     *
+     *  \par Units: radians
      */
     float TILTMAX_LND;
 
-    /**
-     * Landing descend rate
+    /** \brief Landing descend rate
      *
-     * @unit m/s
-     * @min 0.2
-     * @decimal 1
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #LAND_SPEED_MIN > #LAND_SPEED_MAX.
+     *
+     *  \par Units: m
      */
     float LAND_SPEED;
 
-    /**
-     * Takeoff climb rate
+    /** \brief Takeoff climb rate
      *
-     * @unit m/s
-     * @min 1
-     * @max 5
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #TKO_SPEED_MIN > #TKO_SPEED_MAX.
+     *
+     *  \par Units: m/s
      */
     float TKO_SPEED;
 
-    /**
-     * Maximal tilt angle in manual or altitude mode
+    /** \brief Maximal tilt angle in manual or altitude mode
      *
-     * @unit deg
-     * @min 0.0
-     * @max 90.0
-     * @decimal 1
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #MAN_TILT_MAX_MIN > #MAN_TILT_MAX_MAX.
+     *
+     *  \par Units: deg
      */
     float MAN_TILT_MAX;
 
-    /**
-     * Max manual yaw rate
+    /** \brief Max manual yaw rate
      *
-     * @unit deg/s
-     * @min 0.0
-     * @max 400
-     * @decimal 1
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #MAN_Y_MAX_MIN > #MAN_Y_MAX_MAX.
+     *
+     *  \par Units: deg/s
      */
     float MAN_Y_MAX;
 
-    /**
-     * Deadzone of sticks where position hold is enabled
+    /** \brief Deadzone of sticks where position hold is enabled
      *
-     * @min 0.0
-     * @max 1.0
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #MAN_Y_MAX_MIN > #MAN_Y_MAX_MAX.
+     *
+     *  \par Units: deg/s
      */
     float HOLD_DZ;
 
-    /**
-     * Maximum horizontal velocity for which position hold is enabled (use 0 to disable check)
+    /** \brief Maximum horizontal velocity for which position hold
+     *         is enabled (use 0 to disable check).
      *
-     * @unit m/s
-     * @min 0.0
-     * @max 3.0
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #MAN_XY_MAX_MIN > #MAN_XY_MAX_MAX.
+     *
+     *  \par Units: m/s
      */
     float HOLD_MAX_XY;
 
-    /**
-     * Maximum vertical velocity for which position hold is enabled (use 0 to disable check)
+    /** \brief Maximum vertical velocity for which position hold is enabled
+     *         (use 0 to disable check)
      *
-     * @unit m/s
-     * @min 0.0
-     * @max 3.0
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #HOLD_MAX_Z_MIN > #HOLD_MAX_Z_MAX.
+     *
+     *  \par Units: m/s
      */
     float HOLD_MAX_Z;
 
-    /**
-     * Low pass filter cut freq. for numerical velocity derivative
+    /** \brief Low pass filter cut freq. for numerical velocity derivative
      *
-     * @unit Hz
-     * @min 0.0
-     * @max 10
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #VELD_LP_MIN > #VELD_LP_MAX.
+     *
+     *  \par Units: Hz
      */
     float VELD_LP;
 
-    /**
-     * Maximum horizonal acceleration in velocity controlled modes
+    /** \brief Maximum horizonal acceleration in velocity controlled modes
      *
-     * @unit m/s/s
-     * @min 2.0
-     * @max 15.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #ACC_HOR_MAX_MIN > #ACC_HOR_MAX_MAX.
+     *
+     *  \par Units: m/s/s
      */
     float ACC_HOR_MAX;
 
-    /**
-     * Maximum vertical acceleration in velocity controlled modes upward
+    /** \brief Maximum vertical acceleration in velocity controlled modes upward
      *
-     * @unit m/s/s
-     * @min 2.0
-     * @max 15.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #ACC_UP_MAX_MIN > #ACC_UP_MAX_MAX.
+     *
+     *  \par Units: m/s/s
      */
     float ACC_UP_MAX;
 
-    /**
-     * Maximum vertical acceleration in velocity controlled modes down
+    /** \brief Maximum vertical acceleration in velocity controlled modes down
      *
-     * @unit m/s/s
-     * @min 2.0
-     * @max 15.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #ACC_DOWN_MAX_MIN > #ACC_DOWN_MAX_MAX.
+     *
+     *  \par Units: m/s/s
      */
     float ACC_DOWN_MAX;
 
-    /**
-     * Altitude control mode, note mode 1 only tested with LPE
+    /** \brief Altitude control mode, note mode 1 only tested with LPE
      *
-     * @min 0
-     * @max 1
-     * @value 0 Altitude following
-     * @value 1 Terrain following
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #ALT_MODE_MIN > #ALT_MODE_MAX.
+     *
+     *  \par 0: Altitude following, 1: Terrain following
      */
     uint32 ALT_MODE;
 
-    /**
-     * Manual control stick exponential curve sensitivity attenuation with small velocity setpoints
+    /** \brief Manual control stick exponential curve sensitivity attenuation
+     *         with small velocity setpoints.
      *
-     * The higher the value the less sensitivity the stick has around zero
-     * while still reaching the maximum value with full stick deflection.
+     *  \par Limits:
+     *       Min > Max (incr.) #XY_MAN_EXPO_MIN > #XY_MAN_EXPO_MAX.
      *
-     * 0 Purely linear input curve (default)
-     * 1 Purely cubic input curve
-     *
-     * @min 0
-     * @max 1
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par 0: Purely linear input curve, 1: Purely cubic input curve
      */
     float XY_MAN_EXPO;
 
-    /**
-     * Manual control stick vertical exponential curve
+    /** \brief Manual control stick vertical exponential curve
      *
-     * The higher the value the less sensitivity the stick has around zero
-     * while still reaching the maximum value with full stick deflection.
+     *  \par The higher the value the less sensitivity the stick has
+     *       around zero while still reaching the maximum value with full
+     *       stick deflection.
      *
-     * 0 Purely linear input curve (default)
-     * 1 Purely cubic input curve
+     *  \par Limits:
+     *       Min > Max (incr.) #Z_MAN_EXPO_MIN > #Z_MAN_EXPO_MAX.
      *
-     * @min 0
-     * @max 1
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par 0: Purely linear input curve, 1: Purely cubic input curve
      */
     float Z_MAN_EXPO;
 
-    /**
-     * Altitude for 1. step of slow landing (descend)
+    /** \brief Altitude for step 1 of slow landing (descend)
      *
-     * Below this altitude descending velocity gets limited
-     * to a value between "MPC_Z_VEL_MAX" and "MPC_LAND_SPEED"
-     * to enable a smooth descent experience
-     * Value needs to be higher than "MPC_LAND_ALT2"
+     *  \par Below this altitude descending velocity gets limited
+     *       to a value between #Z_VEL_MAX and #LAND_SPEED
+     *       to enable a smooth descent experience.
+     *       Value needs to be higher than #LAND_ALT2
      *
-     * @unit m
-     * @min 0
-     * @max 122
-     * @decimal 1
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #LAND_ALT1_MIN > #LAND_ALT1_MAX.
+     *
+     *  \par Units: m
      */
     uint32 LAND_ALT1;
 
-    /**
-     * Altitude for 2. step of slow landing (landing)
+    /** \brief Altitude for step 2 of slow landing (landing)
      *
-     * Below this altitude descending velocity gets limited to "MPC_LAND_SPEED"
-     * Value needs to be lower than "MPC_LAND_ALT1"
+     *  \par Below this altitude descending velocity gets limited to
+     *  #LAND_SPEED.  Value needs to be lower than #LAND_ALT1.
      *
-     * @unit m
-     * @min 0
-     * @max 122
-     * @decimal 1
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #LAND_ALT2_MIN > #LAND_ALT2_MAX.
+     *
+     *  \par Units: m
      */
     uint32 LAND_ALT2;
 
-    /**
-     * Position control smooth takeoff ramp time constant
+    /** \brief Position control smooth takeoff ramp time constant
      *
-     * Increasing this value will make automatic and manual takeoff slower.
-     * If it's too slow the drone might scratch the ground and tip over.
+     *  \par Increasing this value will make automatic and manual takeoff
+     *       slower.  If it's too slow the drone might scratch the ground
+     *       and tip over.
      *
-     * @min 0.1
-     * @max 1
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #TKO_RAMP_T_MIN > #TKO_RAMP_T_MAX.
      */
     float TKO_RAMP_T;
 
+    /** \brief Max yaw rate
+     *
+     *  \par Limits:
+     *       Min > Max (incr.) #MC_YAWRATE_MAX_MIN > #MC_YAWRATE_MAX_MAX.
+     *
+     *  \par Units: deg/s
+     */
     float MC_YAWRATE_MAX;
 
+    /** \brief Yaw P gain
+     *
+     *  \par Yaw proportional gain, i.e. desired angular speed in rad/s for error 1 rad.
+     *
+     *  \par Limits:
+     *       Min > Max (incr.) #MC_YAW_P_MIN > #MC_YAW_P_MAX.
+     *
+     *  \par Units: 1/s
+     */
     float MC_YAW_P;
 
     int32 VT_OPT_RECOV_EN;
 
-    float MIS_LTRMIN_ALT;
-
-    /**
-     * Cruise speed when angle prev-current/current-next setpoint
-     * is 90 degrees. It should be lower than MPC_XY_CRUISE.
+    /** \brief Cruising speed at 90
      *
-     * Applies only in AUTO modes (includes
-     * also RTL / hold / etc.)
+     *  \par Cruise speed when angle prev-current/current-next setpoint
+     *       is 90 degrees. It should be lower than #XY_CRUISE.
      *
-     * @unit m/s
-     * @min 1.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Applies only in AUTO modes (includes also RTL / hold / etc.)
+     *
+     *  \par Limits:
+     *       Min > Max (incr.) #MPC_CRUISE_90_MIN > #MPC_CRUISE_90_MAX.
+     *
+     *  \par Units: m/s
      */
     float MPC_CRUISE_90;
 
-    /**
-     * Maximum jerk in manual controlled mode for BRAKING to zero.
-     * If this value is below MPC_JERK_MIN, the acceleration limit in xy and z
-     * is MPC_ACC_HOR_MAX and MPC_ACC_UP_MAX respectively instantaneously when the
-     * user demands brake (=zero stick input).
-     * Otherwise the acceleration limit increases from current acceleration limit
-     * towards MPC_ACC_HOR_MAX/MPC_ACC_UP_MAX with jerk limit
+    /** \brief Maximum jerk in manual controlled mode for BRAKING to zero.
      *
-     * @unit m/s/s/s
-     * @min 0.0
-     * @max 15.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par If this value is below MPC_JERK_MIN, the acceleration limit in xy
+     *   and z is MPC_ACC_HOR_MAX and MPC_ACC_UP_MAX respectively
+     *   instantaneously when the user demands brake (=zero stick input).
+     *   Otherwise the acceleration limit increases from current acceleration
+     *   limit towards MPC_ACC_HOR_MAX/MPC_ACC_UP_MAX with jerk limit
+     *
+     *  \par Limits:
+     *       Min > Max (incr.) #MPC_JERK_MAX_MIN > #MPC_JERK_MAX_MAX.
+     *
+     *  \par Units: m/s/s/s
      */
     float MPC_JERK_MAX;
 
-    /**
-     * Minimum jerk in manual controlled mode for BRAKING to zero
+    /** \brief Minimum jerk in manual controlled mode for BRAKING to zero
      *
-     * @unit m/s/s/s
-     * @min 0.5
-     * @max 10.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #MPC_JERK_MIN_MIN > #MPC_JERK_MIN_MAX.
+     *
+     *  \par Units: m/s/s/s
      */
     float MPC_JERK_MIN;
 
-    /**
-     * Slow horizontal manual deceleration for manual mode
+    /** \brief Slow horizontal manual deceleration for manual mode
      *
-     * @unit m/s/s
-     * @min 0.5
-     * @max 10.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par Limits:
+     *       Min > Max (incr.) #MPC_DEC_HOR_SLOW_MIN > #MPC_DEC_HOR_SLOW_MAX.
+     *
+     *  \par Units: m/s/s
      */
     float MPC_DEC_HOR_SLOW;
 
-    /**
-     * Maximum horizontal velocity setpoint for manual controlled mode
-     * If velocity setpoint larger than MPC_XY_VEL_MAX is set, then
-     * the setpoint will be capped to MPC_XY_VEL_MAX
+    /** \brief Maximum horizontal velocity setpoint for manual controlled mode
      *
-     * @unit m/s
-     * @min 3.0
-     * @max 20.0
-     * @increment 1
-     * @decimal 2
-     * @group Multicopter Position Control
+     *  \par If velocity setpoint larger than MPC_XY_VEL_MAX is set, then
+     *       the setpoint will be capped to MPC_XY_VEL_MAX
+     *
+     *  \par Limits:
+     *       Min > Max (incr.) #MPC_VEL_MANUAL_MIN > #MPC_VEL_MANUAL_MAX.
+     *
+     *  \par Units: m/s
      */
     float MPC_VEL_MANUAL;
 
-    /**
-     * Acceptance Radius
+    /** \brief Acceptance Radius
      *
-     * Default acceptance radius, overridden by acceptance radius of waypoint if set.
-     * For fixed wing the L1 turning distance is used for horizontal acceptance.
+     *  \par Default acceptance radius, overridden by acceptance radius of
+     *       waypoint if set. For fixed wing the L1 turning distance is used
+     *       for horizontal acceptance.
      *
-     * @unit m
-     * @min 0.05
-     * @max 200.0
-     * @decimal 1
-     * @increment 0.5
-     * @group Mission
+     *  \par Limits:
+     *       Min > Max (incr.) #NAV_ACC_RAD_MIN > #NAV_ACC_RAD_MAX.
+     *
+     *  \par Units: m
      */
     float NAV_ACC_RAD;
 
@@ -654,7 +648,9 @@ typedef struct
      *  \brief Max yaw error in degrees needed for waypoint heading acceptance.
      *
      *  \par Limits:
-     *       Min > Max (incr.) 0 > 90 , default 12.0.
+     *       Min > Max (incr.) NAV_MIS_YAW_ERR_MIN > NAV_MIS_YAW_ERR_MAX , default 12.0.
+     *
+     *  \par Units: deg
      */
     float NAV_MIS_YAW_ERR;
 

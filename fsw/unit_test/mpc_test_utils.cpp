@@ -49,6 +49,10 @@
 
 #include <time.h>
 
+
+extern MPC_ConfigTbl_t MPC_ConfigTbl;
+
+
 /*
  * Function Definitions
  */

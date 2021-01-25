@@ -36,7 +36,7 @@
 
 typedef enum
 {
-	UT_MPC_PX4LIB_GETPX4TIMEUS_INDEX,
+    UT_MPC_PX4LIB_GETPX4TIMEUS_INDEX,
     UT_MPC_CUSTOM_MAX_INDEX
 } Ut_MPC_Custom_INDEX_t;
 
@@ -49,7 +49,7 @@ typedef struct
 {
     int32   Value;
     uint32  Count;
-    boolean ContinueReturnCodeAfterCountZero;
+    osalbool ContinueReturnCodeAfterCountZero;
 } Ut_MPC_Custom_ReturnCodeTable_t;
 
 void Ut_MPC_Custom_Reset(void);
