@@ -1,5 +1,5 @@
 
-add_airliner_app_def(mpc
+buildliner_add_app_def(mpc
     FILE MPC
     SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/mpc_app.cpp
@@ -21,7 +21,7 @@ add_airliner_app_def(mpc
         ${PROJECT_SOURCE_DIR}/apps/mpc/fsw/platform_inc
 )
 
-add_airliner_app_unit_test(mpc-ut
+buildliner_add_app_unit_test(mpc-ut
     UTASSERT
     NO_HELGRIND
     NO_MASSIF
